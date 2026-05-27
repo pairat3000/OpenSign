@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git clone *)",
+      "Bash(dir /a \"C:\\\\Users\\\\thitaphatana.san.DOHOME\\\\OneDrive - Dohome Public Company Limited\\\\Desktop\\\\Claud\\\\Opensign\\\\Opensign\")",
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)",
+      "Bash(gh pr *)",
+      "Bash(gh auth *)"
+    ]
+  }
+}
