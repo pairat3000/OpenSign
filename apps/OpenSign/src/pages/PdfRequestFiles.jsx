@@ -157,6 +157,8 @@ function PdfRequestFiles(
   const [fontColor, setFontColor] = useState();
   const [isTextSetting, setIsTextSetting] = useState(false);
   const [isPageCopy, setIsPageCopy] = useState(false);
+  const [isCommentModal, setIsCommentModal] = useState(false);
+  const [commentText, setCommentText] = useState("");
   const [assignedWidgetId, setAssignedWidgetId] = useState([]);
   const [showSignPagenumber, setShowSignPagenumber] = useState([]);
   const [owner, setOwner] = useState({});
@@ -644,6 +646,7 @@ function PdfRequestFiles(
 
   //function for embed signature or image url in pdf
   async function embedWidgetsData(
+    overrideSignerPos
   ) {
     let contactId =
       signerObjectId;
@@ -686,7 +689,8 @@ function PdfRequestFiles(
     //check if isEmailVerified then go on next step
     if (!isEnableOTP || isEmailVerified) {
       try {
-        const checkUser = signerPos.filter(
+        const activeSignerPos = overrideSignerPos || signerPos;
+        const checkUser = activeSignerPos.filter(
           (data) => data.signerObjId === signerObjectId
         );
         if (checkUser && checkUser.length > 0) {
@@ -995,9 +999,76 @@ function PdfRequestFiles(
       }
     }
   }
-  const handleSignPdf = async () => {
+  const handleSignPdf = () => {
+    // Show comment modal before proceeding with document signing
+    setCommentText("");
+    setIsCommentModal(true);
+  };
+
+  // Called when signer confirms (with or without comment) from the comment modal
+  const handleCommentProceed = async (comment) => {
+    setIsCommentModal(false);
     setIsUiLoading(true);
-      await embedWidgetsData();
+
+    let finalSignerPos = signerPos;
+
+    if (comment && comment.trim()) {
+      // Build a text widget for the comment and append it to the last page
+      const lastPage = pdfOriginalWH[pdfOriginalWH.length - 1];
+      const lastPageNumber = lastPage ? lastPage.pageNumber : pageNumber;
+      const pageWidth = lastPage ? lastPage.width : 595;
+      const pageHeight = lastPage ? lastPage.height : 842;
+
+      const commentWidgetKey = randomId();
+      const commentWidget = {
+        xPosition: 20,
+        yPosition: pageHeight - 60,
+        key: commentWidgetKey,
+        scale: 1,
+        zIndex: 200,
+        type: textWidget,
+        options: {
+          name: `comment-${commentWidgetKey}-1`,
+          status: "required",
+          response: comment.trim(),
+          fontSize: 12,
+          fontColor: "black"
+        },
+        Width: Math.min(pageWidth - 40, 500),
+        Height: 19
+      };
+
+      // Compute updated signerPos synchronously so embedWidgetsData can use it immediately
+      finalSignerPos = signerPos.map((signer) => {
+        if (signer.Id !== uniqueId) return signer;
+
+        const existingPlaceholders = signer.placeHolder || [];
+        const pageEntry = existingPlaceholders.find(
+          (p) => p.pageNumber === lastPageNumber
+        );
+
+        let updatedPlaceholders;
+        if (pageEntry) {
+          updatedPlaceholders = existingPlaceholders.map((p) =>
+            p.pageNumber === lastPageNumber
+              ? { ...p, pos: [...p.pos, commentWidget] }
+              : p
+          );
+        } else {
+          updatedPlaceholders = [
+            ...existingPlaceholders,
+            { pageNumber: lastPageNumber, pos: [commentWidget] }
+          ];
+        }
+
+        return { ...signer, placeHolder: updatedPlaceholders };
+      });
+
+      // Also update React state so UI stays in sync
+      setSignerPos(finalSignerPos);
+    }
+
+    await embedWidgetsData(finalSignerPos);
   };
 
   //function for save x and y position and show signature  tab on that position
@@ -2307,6 +2378,46 @@ function PdfRequestFiles(
             handleSaveFontSize={handleSaveFontSize}
             currWidgetsDetails={currWidgetsDetails}
           />
+
+          {/* Comment modal — shown before finishing the signing process */}
+          <ModalUi
+            isOpen={isCommentModal}
+            title={t("signer-comment-title") || "เพิ่ม Comment เพิ่มเติม"}
+            handleClose={() => setIsCommentModal(false)}
+          >
+            <div className="p-[20px] flex flex-col gap-3">
+              <p className="text-base-content text-sm">
+                {t("signer-comment-desc") ||
+                  "หากต้องการเพิ่มข้อความ Comment ลงบนเอกสาร กรุณาพิมพ์ข้อความด้านล่าง หากไม่ต้องการสามารถกด Cancel ได้"}
+              </p>
+              <textarea
+                className="op-textarea op-textarea-bordered w-full text-sm resize-none"
+                rows={4}
+                placeholder={
+                  t("signer-comment-placeholder") || "พิมพ์ข้อความ Comment ที่นี่..."
+                }
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-1">
+                <button
+                  type="button"
+                  className="op-btn op-btn-ghost"
+                  onClick={() => handleCommentProceed("")}
+                >
+                  {t("cancel") || "Cancel"}
+                </button>
+                <button
+                  type="button"
+                  className="op-btn op-btn-primary"
+                  onClick={() => handleCommentProceed(commentText)}
+                >
+                  {t("finish") || "Finish"}
+                </button>
+              </div>
+            </div>
+          </ModalUi>
     </>
   );
 }
