@@ -1015,20 +1015,46 @@ function PdfRequestFiles(
     setCommentPlacementMode(true);
   };
 
-  // Called when user clicks on the PDF while in placement mode
+  // Called when user clicks on the PDF while in placement mode.
+  // All pages are stacked vertically in divRef with a 14px gap between each,
+  // so we walk the sorted page list to find the clicked page and compute
+  // the position relative to that page before converting to PDF coordinates.
   const handlePlacementClick = (e) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const containerScale = getContainerScale(pdfOriginalWH, pageNumber, containerWH);
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    const PAGE_GAP = 14; // matches marginBottom set in RenderPdf
+    const sortedPages = [...pdfOriginalWH].sort((a, b) => a.pageNumber - b.pageNumber);
+
+    let accHeight = 0;
+    let chosenPage = sortedPages[sortedPages.length - 1]; // fallback: last page
+    let pageRelativeY = clickY;
+
+    for (let i = 0; i < sortedPages.length; i++) {
+      const page = sortedPages[i];
+      const cs = getContainerScale(pdfOriginalWH, page.pageNumber, containerWH);
+      const renderedHeight = page.height * cs;
+      const pageBottom = accHeight + renderedHeight;
+
+      if (clickY <= pageBottom) {
+        chosenPage = page;
+        pageRelativeY = clickY - accHeight;
+        break;
+      }
+      // add this page's height + gap before moving to next page
+      accHeight += renderedHeight + PAGE_GAP;
+    }
+
+    const containerScale = getContainerScale(pdfOriginalWH, chosenPage.pageNumber, containerWH);
     setCommentWidgetPos({
-      xPosition: x / (containerScale * scale),
-      yPosition: y / (containerScale * scale),
-      pageNumber: pageNumber
+      xPosition: clickX / (containerScale * scale),
+      yPosition: pageRelativeY / (containerScale * scale),
+      pageNumber: chosenPage.pageNumber
     });
     setCommentPlacementMode(false);
-    setIsCommentModal(true); // re-open modal to show confirmed position
+    setIsCommentModal(true);
   };
 
   // Called when signer confirms (with or without comment) from the comment modal
@@ -2460,20 +2486,14 @@ function PdfRequestFiles(
           {/* Comment modal — shown before finishing the signing process */}
           <ModalUi
             isOpen={isCommentModal}
-            title={t("signer-comment-title") || "เพิ่ม Comment เพิ่มเติม"}
+            title="ความเห็นเพิ่มเติม"
             handleClose={() => setIsCommentModal(false)}
           >
             <div className="p-[20px] flex flex-col gap-3">
-              <p className="text-base-content text-sm">
-                {t("signer-comment-desc") ||
-                  "หากต้องการเพิ่มข้อความ Comment ลงบนเอกสาร กรุณาพิมพ์ข้อความด้านล่าง หากไม่ต้องการสามารถกด Cancel ได้"}
-              </p>
               <textarea
                 className="op-textarea op-textarea-bordered w-full text-sm resize-none"
                 rows={4}
-                placeholder={
-                  t("signer-comment-placeholder") || "พิมพ์ข้อความ Comment ที่นี่..."
-                }
+                placeholder="พิมพ์ความเห็นเพิ่มเติมที่นี่"
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 autoFocus
@@ -2501,7 +2521,7 @@ function PdfRequestFiles(
                   onClick={handleEnterPlacementMode}
                   disabled={!commentText.trim()}
                 >
-                  📍 {t("signer-comment-pick-position") || "เลือกตำแหน่งบนเอกสาร"}
+                  📍 กรุณาเลือกตำแหน่งเพื่อวางข้อความบนเอกสาร
                 </button>
               )}
               <div className="flex justify-end gap-2 mt-1">
