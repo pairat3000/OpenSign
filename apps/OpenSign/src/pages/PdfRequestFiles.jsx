@@ -1019,37 +1019,33 @@ function PdfRequestFiles(
   // All pages are stacked vertically in divRef with a 14px gap between each,
   // so we walk the sorted page list to find the clicked page and compute
   // the position relative to that page before converting to PDF coordinates.
+  // Uses each page's actual DOM bounding rect (data-page-number) to compute
+  // click coordinates — same approach as the existing drag-and-drop handler.
   const handlePlacementClick = (e) => {
     e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+    const clickX_vp = e.clientX;
+    const clickY_vp = e.clientY;
 
-    const PAGE_GAP = 14; // matches marginBottom set in RenderPdf
     const sortedPages = [...pdfOriginalWH].sort((a, b) => a.pageNumber - b.pageNumber);
-
-    let accHeight = 0;
     let chosenPage = sortedPages[sortedPages.length - 1]; // fallback: last page
-    let pageRelativeY = clickY;
+    let pageRelativeX = 0;
+    let pageRelativeY = 0;
 
-    for (let i = 0; i < sortedPages.length; i++) {
-      const page = sortedPages[i];
-      const cs = getContainerScale(pdfOriginalWH, page.pageNumber, containerWH);
-      const renderedHeight = page.height * cs;
-      const pageBottom = accHeight + renderedHeight;
-
-      if (clickY <= pageBottom) {
+    for (const page of sortedPages) {
+      const pageEl = document.querySelector(`[data-page-number="${page.pageNumber}"]`);
+      if (!pageEl) continue;
+      const rect = pageEl.getBoundingClientRect();
+      if (clickY_vp <= rect.bottom) {
         chosenPage = page;
-        pageRelativeY = clickY - accHeight;
+        pageRelativeX = clickX_vp - rect.left;
+        pageRelativeY = clickY_vp - rect.top;
         break;
       }
-      // add this page's height + gap before moving to next page
-      accHeight += renderedHeight + PAGE_GAP;
     }
 
     const containerScale = getContainerScale(pdfOriginalWH, chosenPage.pageNumber, containerWH);
     setCommentWidgetPos({
-      xPosition: clickX / (containerScale * scale),
+      xPosition: pageRelativeX / (containerScale * scale),
       yPosition: pageRelativeY / (containerScale * scale),
       pageNumber: chosenPage.pageNumber
     });
