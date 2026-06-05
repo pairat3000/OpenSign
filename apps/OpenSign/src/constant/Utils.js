@@ -1948,10 +1948,17 @@ export const embedWidgetsToDoc = async (
   scale,
   prefillImg
 ) => {
-  // `fontBytes` is used to embed custom font in pdf
-  const fontBytes = await fileasbytes(
-    "https://cdn.opensignlabs.com/webfonts/times.ttf"
-  );
+  // Load Sarabun font which supports Thai + Latin characters.
+  // Fall back to the original Times font if the local asset is unavailable.
+  let fontBytes;
+  try {
+    const sarabunUrl = `${window.location.origin}/static/sarabun.ttf`;
+    fontBytes = await fileasbytes(sarabunUrl);
+  } catch (_) {
+    fontBytes = await fileasbytes(
+      "https://cdn.opensignlabs.com/webfonts/times.ttf"
+    );
+  }
   pdfDoc.registerFontkit(fontkit);
   const font = await pdfDoc.embedFont(fontBytes, { subset: true });
   let hasError = false;
