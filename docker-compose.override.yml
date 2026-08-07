@@ -1,0 +1,15 @@
+# Build client & server from LOCAL source (this Dohome fork) instead of pulling
+# the public opensign/* images. This is what makes the Thai-font (Sarabun) and
+# "comment before signing" customizations actually run.
+#
+# Compose merges this file automatically. To use the stock upstream images
+# instead, run:  docker compose -f docker-compose.yml up
+services:
+  server:
+    build:
+      context: .
+      dockerfile: apps/OpenSignServer/Dockerhubfile
+  client:
+    build:
+      context: .
+      dockerfile: apps/OpenSign/Dockerhubfile

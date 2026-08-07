@@ -1,0 +1,76 @@
+# CI/CD for the Dohome OpenSign fork.
+#
+# build stage: builds the server (apps/OpenSignServer/Dockerhubfile) and client
+#   (apps/OpenSign/Dockerhubfile) images from this repo and pushes them to this
+#   GitLab project's Container Registry.
+# deploy stage: SSHes into the target VM and re-pulls/restarts the stack via
+#   docker-compose.yml + docker-compose.deploy.yml (see that file for why a
+#   separate deploy overlay exists instead of reusing docker-compose.override.yml).
+#
+# Required CI/CD variables (Settings > CI/CD > Variables, masked + protected,
+# restricted to the `staging` branch):
+#   DEPLOY_SSH_HOST   - hostname/IP of the target VM
+#   DEPLOY_SSH_USER   - SSH user on that VM
+#   DEPLOY_SSH_KEY    - private key (PEM) matching a public key already
+#                       authorized on that VM for DEPLOY_SSH_USER
+#   DEPLOY_PATH       - absolute path on the VM to this repo's checkout
+#                       (must already be `git clone`d there once, on branch
+#                       `staging`, with a real .env.prod alongside it)
+
+stages:
+  - build
+  - deploy
+
+variables:
+  SERVER_IMAGE: $CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHORT_SHA
+  CLIENT_IMAGE: $CI_REGISTRY_IMAGE/client:$CI_COMMIT_SHORT_SHA
+
+.only-staging:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+
+build-server:
+  extends: .only-staging
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker build -t "$SERVER_IMAGE" -f apps/OpenSignServer/Dockerhubfile .
+    - docker push "$SERVER_IMAGE"
+
+build-client:
+  extends: .only-staging
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker build -t "$CLIENT_IMAGE" -f apps/OpenSign/Dockerhubfile .
+    - docker push "$CLIENT_IMAGE"
+
+deploy:
+  extends: .only-staging
+  stage: deploy
+  image: alpine:latest
+  needs:
+    - build-server
+    - build-client
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - ssh-keyscan -H "$DEPLOY_SSH_HOST" >> ~/.ssh/known_hosts
+  script:
+    - >
+      ssh "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST"
+      "set -e &&
+      cd '$DEPLOY_PATH' &&
+      git fetch origin staging &&
+      git reset --hard origin/staging &&
+      docker login -u '$CI_REGISTRY_USER' -p '$CI_REGISTRY_PASSWORD' '$CI_REGISTRY' &&
+      SERVER_IMAGE='$SERVER_IMAGE' CLIENT_IMAGE='$CLIENT_IMAGE' docker compose -f docker-compose.yml -f docker-compose.deploy.yml pull &&
+      SERVER_IMAGE='$SERVER_IMAGE' CLIENT_IMAGE='$CLIENT_IMAGE' docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d --remove-orphans"
