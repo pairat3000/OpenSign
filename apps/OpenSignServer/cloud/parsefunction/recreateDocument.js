@@ -21,6 +21,8 @@ export default async function recreateDocument(request) {
       'DeclineReason',
       'DocumentHash',
       'CertificateUrl',
+      'Comments',
+      'CommentsPagesCount',
     ]);
     const doc = await docQuery.first({ useMasterKey: true });
     if (!doc) {

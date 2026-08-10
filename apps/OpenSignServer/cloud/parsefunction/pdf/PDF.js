@@ -11,6 +11,7 @@ import {
   serverAppId,
 } from '../../../Utils.js';
 import GenerateCertificate from './GenerateCertificate.js';
+import GenerateCommentsPage from './GenerateCommentsPage.js';
 import { pdflibAddPlaceholder } from '@signpdf/placeholder-pdf-lib';
 import { Placeholder } from './Placeholder.js';
 import { SignPdf } from '@signpdf/signpdf';
@@ -87,7 +88,9 @@ async function updateDoc(
   className,
   sign,
   documentHash,
-  activity
+  activity,
+  comments,
+  commentsPagesCount
 ) {
   try {
     const UserPtr = { __type: 'Pointer', className: className, objectId: userId };
@@ -131,6 +134,12 @@ async function updateDoc(
     const body = { SignedUrl: url, AuditTrail: updateAuditTrail, IsCompleted: isCompleted };
     if (documentHash && isCompleted) {
       body.DocumentHash = documentHash;
+    }
+    if (comments) {
+      body.Comments = comments;
+    }
+    if (commentsPagesCount !== undefined) {
+      body.CommentsPagesCount = commentsPagesCount;
     }
     const signedRes = await axios.put(`${docUrl}/${docId}`, body, { headers });
     return {
@@ -451,6 +460,31 @@ async function PDF(req) {
     if (req.params.pdfFile) {
       //  `PdfBuffer` used to create buffer from pdf file
       let PdfBuffer = Buffer.from(req.params.pdfFile, 'base64');
+
+      // Append/regenerate the trailing "ความคิดเห็นเพิ่มเติม" comments page.
+      // Runs before both the completed and not-yet-completed branches below,
+      // and before any signature placeholder/digital signing, so the page is
+      // always covered by the final PAdES signature. Only touches the PDF
+      // when this signer actually left a comment — if they didn't, the
+      // buffer (re-fetched from SignedUrl by the client) already carries the
+      // previous round's appendix through untouched.
+      const priorComments = Array.isArray(_resDoc.Comments) ? _resDoc.Comments : [];
+      const newCommentText = (req.params.comment || '').trim();
+      let updatedComments = priorComments;
+      let commentsPagesCount = _resDoc.CommentsPagesCount || 0;
+      if (newCommentText) {
+        updatedComments = [
+          ...priorComments,
+          { Name: username, Comment: newCommentText, SignedOn: new Date().toISOString() },
+        ];
+        const pdfDocForComments = await PDFDocument.load(PdfBuffer);
+        for (let i = 0; i < commentsPagesCount; i++) {
+          pdfDocForComments.removePage(pdfDocForComments.getPageCount() - 1);
+        }
+        commentsPagesCount = await GenerateCommentsPage(pdfDocForComments, _resDoc, updatedComments);
+        PdfBuffer = Buffer.from(await pdfDocForComments.save());
+      }
+
       //  `P12Buffer` used to create buffer from p12 certificate
       let pfxFile = process.env.PFX_BASE64;
       let passphrase = process.env.PASS_PHRASE;
@@ -534,7 +568,9 @@ async function PDF(req) {
           className, // className based on flow
           sign, // sign base64
           isCompleted ? documentHash : undefined,
-          auditActivity
+          auditActivity,
+          updatedComments,
+          commentsPagesCount
         );
         sendNotifyMail(_resDoc, signUser, mailProvider, publicUrl);
         saveFileUsage(pdfSize, data.imageUrl, _resDoc?.CreatedBy?.objectId);

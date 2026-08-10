@@ -159,9 +159,6 @@ function PdfRequestFiles(
   const [isPageCopy, setIsPageCopy] = useState(false);
   const [isCommentModal, setIsCommentModal] = useState(false);
   const [commentText, setCommentText] = useState("");
-  const [commentPlacementMode, setCommentPlacementMode] = useState(false);
-  const [commentWidgetPos, setCommentWidgetPos] = useState(null);
-  const [commentMousePos, setCommentMousePos] = useState({ x: 0, y: 0 });
   const [assignedWidgetId, setAssignedWidgetId] = useState([]);
   const [showSignPagenumber, setShowSignPagenumber] = useState([]);
   const [owner, setOwner] = useState({});
@@ -649,7 +646,7 @@ function PdfRequestFiles(
 
   //function for embed signature or image url in pdf
   async function embedWidgetsData(
-    overrideSignerPos
+    comment
   ) {
     let contactId =
       signerObjectId;
@@ -692,8 +689,7 @@ function PdfRequestFiles(
     //check if isEmailVerified then go on next step
     if (!isEnableOTP || isEmailVerified) {
       try {
-        const activeSignerPos = overrideSignerPos || signerPos;
-        const checkUser = activeSignerPos.filter(
+        const checkUser = signerPos.filter(
           (data) => data.signerObjId === signerObjectId
         );
         if (checkUser && checkUser.length > 0) {
@@ -788,7 +784,8 @@ function PdfRequestFiles(
                   contactId,
                   objectId,
                   widgets,
-                  "Signed"
+                  "Signed",
+                  comment
                 );
                 if (resSign && resSign.status === "success") {
                   dispatch(setTypedSignFont("Fasthand"));
@@ -1005,130 +1002,17 @@ function PdfRequestFiles(
   const handleSignPdf = () => {
     // Show comment modal before proceeding with document signing
     setCommentText("");
-    setCommentWidgetPos(null);
     setIsCommentModal(true);
   };
 
-  // Enter placement mode: hide modal, let user click on PDF to pick a spot
-  const handleEnterPlacementMode = () => {
-    setIsCommentModal(false);
-    setCommentPlacementMode(true);
-  };
-
-  // Called when user clicks on the PDF while in placement mode.
-  // All pages are stacked vertically in divRef with a 14px gap between each,
-  // so we walk the sorted page list to find the clicked page and compute
-  // the position relative to that page before converting to PDF coordinates.
-  // Uses each page's actual DOM bounding rect (data-page-number) to compute
-  // click coordinates — same approach as the existing drag-and-drop handler.
-  const handlePlacementClick = (e) => {
-    e.stopPropagation();
-    const clickX_vp = e.clientX;
-    const clickY_vp = e.clientY;
-
-    const sortedPages = [...pdfOriginalWH].sort((a, b) => a.pageNumber - b.pageNumber);
-    let chosenPage = sortedPages[sortedPages.length - 1]; // fallback: last page
-    let pageRelativeX = 0;
-    let pageRelativeY = 0;
-
-    for (const page of sortedPages) {
-      const pageEl = document.querySelector(`[data-page-number="${page.pageNumber}"]`);
-      if (!pageEl) continue;
-      const rect = pageEl.getBoundingClientRect();
-      if (clickY_vp <= rect.bottom) {
-        chosenPage = page;
-        pageRelativeX = clickX_vp - rect.left;
-        pageRelativeY = clickY_vp - rect.top;
-        break;
-      }
-    }
-
-    const containerScale = getContainerScale(pdfOriginalWH, chosenPage.pageNumber, containerWH);
-    setCommentWidgetPos({
-      xPosition: pageRelativeX / (containerScale * scale),
-      yPosition: pageRelativeY / (containerScale * scale),
-      pageNumber: chosenPage.pageNumber
-    });
-    setCommentPlacementMode(false);
-    setIsCommentModal(true);
-  };
-
-  // Called when signer confirms (with or without comment) from the comment modal
+  // Called when signer confirms (with or without comment) from the comment
+  // modal. The comment (if any) is sent to the server as plain text; the
+  // server appends it to a dedicated "ความคิดเห็นเพิ่มเติม" page at the end
+  // of the document rather than embedding it as a widget on the page.
   const handleCommentProceed = async (comment) => {
     setIsCommentModal(false);
     setIsUiLoading(true);
-
-    let finalSignerPos = signerPos;
-
-    if (comment && comment.trim()) {
-      // Use user-chosen position if available, otherwise fall back to bottom of last page
-      let targetPageNumber, xPos, yPos, widgetWidth;
-      if (commentWidgetPos) {
-        targetPageNumber = commentWidgetPos.pageNumber;
-        xPos = commentWidgetPos.xPosition;
-        yPos = commentWidgetPos.yPosition;
-        const targetPage = pdfOriginalWH.find((p) => p.pageNumber === targetPageNumber);
-        widgetWidth = Math.min((targetPage?.width || 595) - xPos - 20, 500);
-      } else {
-        const lastPage = pdfOriginalWH[pdfOriginalWH.length - 1];
-        targetPageNumber = lastPage ? lastPage.pageNumber : pageNumber;
-        const pageWidth = lastPage ? lastPage.width : 595;
-        const pageHeight = lastPage ? lastPage.height : 842;
-        xPos = 20;
-        yPos = pageHeight - 60;
-        widgetWidth = Math.min(pageWidth - 40, 500);
-      }
-
-      const commentWidgetKey = randomId();
-      const commentWidget = {
-        xPosition: xPos,
-        yPosition: yPos,
-        key: commentWidgetKey,
-        scale: 1,
-        zIndex: 200,
-        type: textWidget,
-        options: {
-          name: `comment-${commentWidgetKey}-1`,
-          status: "required",
-          response: comment.trim(),
-          fontSize: 12,
-          fontColor: "black"
-        },
-        Width: Math.max(widgetWidth, 100),
-        Height: 19
-      };
-
-      // Compute updated signerPos synchronously so embedWidgetsData can use it immediately
-      finalSignerPos = signerPos.map((signer) => {
-        if (signer.Id !== uniqueId) return signer;
-
-        const existingPlaceholders = signer.placeHolder || [];
-        const pageEntry = existingPlaceholders.find(
-          (p) => p.pageNumber === targetPageNumber
-        );
-
-        let updatedPlaceholders;
-        if (pageEntry) {
-          updatedPlaceholders = existingPlaceholders.map((p) =>
-            p.pageNumber === targetPageNumber
-              ? { ...p, pos: [...p.pos, commentWidget] }
-              : p
-          );
-        } else {
-          updatedPlaceholders = [
-            ...existingPlaceholders,
-            { pageNumber: targetPageNumber, pos: [commentWidget] }
-          ];
-        }
-
-        return { ...signer, placeHolder: updatedPlaceholders };
-      });
-
-      // Also update React state so UI stays in sync
-      setSignerPos(finalSignerPos);
-    }
-
-    await embedWidgetsData(finalSignerPos);
+    await embedWidgetsData(comment?.trim() || "");
   };
 
   //function for save x and y position and show signature  tab on that position
@@ -2242,48 +2126,8 @@ function PdfRequestFiles(
                       ref={divRef}
                       data-tut="pdfArea"
                       className="h-fit relative"
-                      onClick={() => { if (!commentPlacementMode) setIsReqSignTourDisabled(true); }}
+                      onClick={() => setIsReqSignTourDisabled(true)}
                     >
-                      {/* Placement mode overlay — active when user is picking comment position */}
-                      {commentPlacementMode && (
-                        <div
-                          className="absolute inset-0 z-[9999] cursor-crosshair"
-                          onClick={handlePlacementClick}
-                          onMouseMove={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setCommentMousePos({
-                              x: e.clientX - rect.left,
-                              y: e.clientY - rect.top
-                            });
-                          }}
-                        >
-                          {/* Top instruction banner */}
-                          <div className="sticky top-0 bg-primary text-primary-content text-sm px-4 py-2 flex justify-between items-center shadow z-10">
-                            <span>📍 คลิกบนเอกสารเพื่อวางข้อความ Comment</span>
-                            <button
-                              className="op-btn op-btn-sm op-btn-ghost text-primary-content border border-primary-content/50 ml-4"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setCommentPlacementMode(false);
-                                setIsCommentModal(true);
-                              }}
-                            >
-                              ← กลับ
-                            </button>
-                          </div>
-                          {/* Floating preview label that follows the cursor */}
-                          <div
-                            className="pointer-events-none absolute bg-white border-2 border-primary text-xs px-2 py-1 rounded shadow-lg max-w-[300px] break-words opacity-90"
-                            style={{
-                              left: Math.min(commentMousePos.x + 14, Math.max((containerWH?.width || 400) - 310, 0)),
-                              top: commentMousePos.y + 14,
-                              whiteSpace: "pre-wrap"
-                            }}
-                          >
-                            {commentText || "Comment..."}
-                          </div>
-                        </div>
-                      )}
                       {containerWH?.width && (
                         <RenderPdf
                           setIsPageCopy={setIsPageCopy}
@@ -2494,32 +2338,6 @@ function PdfRequestFiles(
                 onChange={(e) => setCommentText(e.target.value)}
                 autoFocus
               />
-              {/* Position indicator — shown after user picks a spot */}
-              {commentWidgetPos ? (
-                <div className="flex items-center gap-2 text-sm bg-success/10 border border-success rounded px-3 py-2">
-                  <span className="text-success text-base">✓</span>
-                  <span className="text-base-content">
-                    {t("signer-comment-position-set") ||
-                      `เลือกตำแหน่งแล้ว — หน้า ${commentWidgetPos.pageNumber}`}
-                  </span>
-                  <button
-                    type="button"
-                    className="ml-auto text-xs underline text-primary"
-                    onClick={handleEnterPlacementMode}
-                  >
-                    {t("signer-comment-change-position") || "เปลี่ยนตำแหน่ง"}
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="op-btn op-btn-outline op-btn-sm self-start"
-                  onClick={handleEnterPlacementMode}
-                  disabled={!commentText.trim()}
-                >
-                  📍 กรุณาเลือกตำแหน่งเพื่อวางข้อความบนเอกสาร
-                </button>
-              )}
               <div className="flex justify-end gap-2 mt-1">
                 <button
                   type="button"
