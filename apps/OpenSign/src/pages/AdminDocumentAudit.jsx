@@ -12,6 +12,37 @@ import Loader from "../primitives/Loader";
 // Access is enforced server-side too (adminauditdocuments cloud function
 // rejects non-admins) - this redirect is just so a non-admin who guesses
 // the URL doesn't land on a page they can't use.
+
+const STATUS_STYLES = {
+  Completed: "op-badge-success",
+  Declined: "op-badge-error",
+  "Not yet sent": "op-badge-ghost",
+  "In progress": "op-badge-warning"
+};
+
+const STATUS_LABEL_TH = {
+  Completed: "เสร็จสมบูรณ์",
+  Declined: "ปฏิเสธการเซ็น",
+  "Not yet sent": "ยังไม่ได้ส่ง",
+  "In progress": "กำลังดำเนินการ"
+};
+
+const PURPOSE_LABEL_TH = {
+  invite: "คำเชิญ",
+  resend: "ส่งซ้ำ (Resend)",
+  "next-signer-notify": "แจ้งเตือนคนถัดไป",
+  "owner-notify": "แจ้งเจ้าของเอกสาร",
+  completion: "อีเมลตอนเสร็จ"
+};
+
+function formatDateTh(dateStr) {
+  if (!dateStr) return "-";
+  return new Date(dateStr).toLocaleString("th-TH", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  });
+}
+
 function AdminDocumentAudit() {
   const extClass =
     localStorage.getItem("Extand_Class") &&
@@ -33,6 +64,7 @@ function AdminDocumentAudit() {
     setIsLoading(true);
     setErrorMsg("");
     setDocuments(null);
+    setExpandedId(null);
     try {
       const res = await Parse.Cloud.run("adminauditdocuments", {
         creatorEmail: creatorEmail.trim(),
@@ -52,9 +84,12 @@ function AdminDocumentAudit() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto w-full">
-      <h1 className="text-xl font-semibold mb-4">
-        ตรวจสอบความผิดปกติของการส่งเอกสาร (Admin)
+      <h1 className="text-xl font-semibold mb-1">
+        ตรวจสอบความผิดปกติของการส่งเอกสาร
       </h1>
+      <p className="text-sm text-base-content/60 mb-4">
+        ค้นหาด้วยอีเมลของผู้สร้างเอกสาร เพื่อดูสถานะและประวัติการส่งอีเมลของเอกสารนั้นๆ
+      </p>
 
       <form
         onSubmit={handleSearch}
@@ -75,8 +110,12 @@ function AdminDocumentAudit() {
           value={documentName}
           onChange={(e) => setDocumentName(e.target.value)}
         />
-        <button type="submit" className="op-btn op-btn-primary">
-          ค้นหา
+        <button
+          type="submit"
+          className="op-btn op-btn-primary"
+          disabled={isLoading}
+        >
+          {isLoading ? "กำลังค้นหา..." : "ค้นหา"}
         </button>
       </form>
 
@@ -90,94 +129,141 @@ function AdminDocumentAudit() {
         <div className="op-alert op-alert-error mb-4 text-sm">{errorMsg}</div>
       )}
 
+      {documents && !isLoading && (
+        <div className="text-sm text-base-content/60 mb-2">
+          พบ {documents.length} เอกสาร
+        </div>
+      )}
+
       {documents && documents.length === 0 && !isLoading && (
-        <div className="text-base-content/70">ไม่พบเอกสารที่ตรงกับเงื่อนไข</div>
+        <div className="text-base-content/70 py-6 text-center border border-dashed border-base-300 rounded-box">
+          ไม่พบเอกสารที่ตรงกับเงื่อนไข
+        </div>
       )}
 
       <div className="flex flex-col gap-3">
-        {documents?.map((doc) => (
-          <div
-            key={doc.objectId}
-            className="border border-base-300 rounded-box overflow-hidden"
-          >
-            <button
-              type="button"
-              className="w-full flex flex-wrap items-center gap-x-4 gap-y-1 justify-between p-4 text-left hover:bg-base-200"
-              onClick={() =>
-                setExpandedId(expandedId === doc.objectId ? null : doc.objectId)
-              }
+        {documents?.map((doc) => {
+          const isOpen = expandedId === doc.objectId;
+          return (
+            <div
+              key={doc.objectId}
+              className="border border-base-300 rounded-box overflow-hidden bg-base-100 shadow-sm"
             >
-              <span className="font-medium">{doc.name}</span>
-              <span className="text-sm text-base-content/70">
-                สถานะ: {doc.status}
-              </span>
-              <span className="text-sm text-base-content/70">
-                Send in order: {doc.sendInOrder ? "Y" : "N"}
-              </span>
-            </button>
-
-            {expandedId === doc.objectId && (
-              <div className="p-4 border-t border-base-300 flex flex-col gap-4">
-                <div>
-                  <h3 className="font-medium mb-2">วิธีการแก้ไขหากผิดปกติ</h3>
-                  <ul className="list-disc list-inside text-sm space-y-1">
-                    {doc.diagnosis.map((line, i) => (
-                      <li key={i}>{line}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="font-medium mb-2">ประวัติการส่งอีเมล</h3>
-                  {doc.mailLog.length === 0 ? (
-                    <div className="text-sm text-base-content/70">
-                      ยังไม่มีประวัติการส่งอีเมลสำหรับเอกสารนี้
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="op-table op-table-sm">
-                        <thead>
-                          <tr>
-                            <th>ผู้รับ</th>
-                            <th>ประเภท</th>
-                            <th>สถานะ</th>
-                            <th>ข้อความ error</th>
-                            <th>เวลา</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {doc.mailLog.map((entry, i) => (
-                            <tr key={i}>
-                              <td>{entry.Recipient}</td>
-                              <td>{entry.Purpose}</td>
-                              <td>
-                                <span
-                                  className={
-                                    entry.Status === "success"
-                                      ? "op-badge op-badge-success"
-                                      : "op-badge op-badge-error"
-                                  }
-                                >
-                                  {entry.Status}
-                                </span>
-                              </td>
-                              <td>{entry.ErrorMessage || "-"}</td>
-                              <td>
-                                {entry.SentAt
-                                  ? new Date(entry.SentAt).toLocaleString()
-                                  : "-"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+              <button
+                type="button"
+                className="w-full flex items-start gap-3 p-4 text-left hover:bg-base-200"
+                onClick={() => setExpandedId(isOpen ? null : doc.objectId)}
+              >
+                <span className="mt-1 text-base-content/50">
+                  {isOpen ? "▾" : "▸"}
+                </span>
+                <span
+                  className="mt-1 text-lg leading-none"
+                  title={doc.hasIssue ? "พบความผิดปกติ" : "ไม่พบความผิดปกติ"}
+                >
+                  {doc.hasIssue ? "⚠️" : "✅"}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium truncate">{doc.name}</span>
+                    <span
+                      className={`op-badge op-badge-sm ${STATUS_STYLES[doc.status] || "op-badge-ghost"}`}
+                    >
+                      {STATUS_LABEL_TH[doc.status] || doc.status}
+                    </span>
+                    <span className="op-badge op-badge-sm op-badge-outline">
+                      Send in order: {doc.sendInOrder ? "Y" : "N"}
+                    </span>
+                  </div>
+                  <div className="text-xs text-base-content/50 mt-1">
+                    สร้างเมื่อ {formatDateTh(doc.createdAt)}
+                  </div>
+                  {doc.waitingOn?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      <span className="text-xs text-base-content/60 mr-1">
+                        รอลงนามจาก:
+                      </span>
+                      {doc.waitingOn.map((name, i) => (
+                        <span
+                          key={i}
+                          className="op-badge op-badge-sm op-badge-outline"
+                        >
+                          {name}
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
+              </button>
+
+              {isOpen && (
+                <div className="p-4 border-t border-base-300 flex flex-col gap-4 bg-base-200/40">
+                  <div>
+                    <h3 className="font-medium mb-2 text-sm">
+                      วิธีการแก้ไขหากผิดปกติ
+                    </h3>
+                    <ul className="text-sm space-y-1.5">
+                      {doc.diagnosis.map((line, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span>{line === "ไม่พบความผิดปกติ" ? "✅" : "⚠️"}</span>
+                          <span>{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium mb-2 text-sm">
+                      ประวัติการส่งอีเมล
+                    </h3>
+                    {doc.mailLog.length === 0 ? (
+                      <div className="text-sm text-base-content/70">
+                        ยังไม่มีประวัติการส่งอีเมลสำหรับเอกสารนี้
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto rounded-box border border-base-300">
+                        <table className="op-table op-table-sm bg-base-100">
+                          <thead>
+                            <tr>
+                              <th>ผู้รับ</th>
+                              <th>ประเภท</th>
+                              <th>สถานะ</th>
+                              <th>ข้อความ error</th>
+                              <th>เวลา</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {doc.mailLog.map((entry, i) => (
+                              <tr key={i}>
+                                <td>{entry.Recipient}</td>
+                                <td>{PURPOSE_LABEL_TH[entry.Purpose] || entry.Purpose}</td>
+                                <td>
+                                  <span
+                                    className={
+                                      entry.Status === "success"
+                                        ? "op-badge op-badge-sm op-badge-success"
+                                        : "op-badge op-badge-sm op-badge-error"
+                                    }
+                                  >
+                                    {entry.Status === "success" ? "สำเร็จ" : "ล้มเหลว"}
+                                  </span>
+                                </td>
+                                <td>{entry.ErrorMessage || "-"}</td>
+                                <td className="whitespace-nowrap">
+                                  {formatDateTh(entry.SentAt)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -17,6 +17,7 @@ function buildAuditEntry(doc) {
   );
 
   let status;
+  let waitingOn = [];
   if (d.IsDeclined) {
     status = 'Declined';
   } else if (d.IsCompleted) {
@@ -24,11 +25,11 @@ function buildAuditEntry(doc) {
   } else if (!d.SendMail) {
     status = 'Not yet sent';
   } else {
-    const waitingOn = placeholders
+    status = 'In progress';
+    waitingOn = placeholders
       .filter(p => !signedIds.has(p?.signerObjId || p?.signerPtr?.objectId))
       .map(p => p?.signerPtr?.Name || p?.signerObjId)
       .filter(Boolean);
-    status = waitingOn.length > 0 ? `In progress (waiting on: ${waitingOn.join(', ')})` : 'In progress';
   }
 
   const mailLog = Array.isArray(d.MailLog) ? [...d.MailLog].reverse() : [];
@@ -69,10 +70,12 @@ function buildAuditEntry(doc) {
     objectId: d.objectId,
     name: d.Name,
     status,
+    waitingOn,
     sendInOrder: !!d.SendinOrder,
     createdAt: d.createdAt,
     mailLog,
     diagnosis,
+    hasIssue: diagnosis.length > 0 && diagnosis[0] !== 'ไม่พบความผิดปกติ',
   };
 }
 
