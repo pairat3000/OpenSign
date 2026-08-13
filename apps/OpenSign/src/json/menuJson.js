@@ -14,6 +14,14 @@ const userssetting = [
     pageType: "",
     description: "",
     objectId: "document-audit"
+  },
+  {
+    icon: "fa-light fa-user-tie",
+    title: "Secretary Management",
+    target: "_self",
+    pageType: "",
+    description: "",
+    objectId: "secretary-management"
   }
 ];
 export const subSetting = [
@@ -152,6 +160,14 @@ const sidebarList = [
     pageType: "report",
     description: "",
     objectId: "contacts"
+  },
+  {
+    icon: "fa-light fa-user-tie",
+    title: "Secretary Documents",
+    target: "_self",
+    pageType: "",
+    description: "",
+    objectId: "secretary-documents"
   },
   {
     icon: "fa-light fa-cog",

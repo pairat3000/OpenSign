@@ -18,6 +18,8 @@ import Lazy from "./primitives/LazyPage";
 import Loader from "./primitives/Loader";
 import UserList from "./pages/UserList";
 import AdminDocumentAudit from "./pages/AdminDocumentAudit";
+import AdminSecretaryManagement from "./pages/AdminSecretaryManagement";
+import SecretaryDocuments from "./pages/SecretaryDocuments";
 import { serverUrl_fn } from "./constant/appinfo";
 import DocSuccessPage from "./pages/DocSuccessPage";
 import DragProvider from "./components/DragProivder";
@@ -95,6 +97,14 @@ function App() {
                   <Route
                     path="/document-audit"
                     element={<AdminDocumentAudit />}
+                  />
+                  <Route
+                    path="/secretary-management"
+                    element={<AdminSecretaryManagement />}
+                  />
+                  <Route
+                    path="/secretary-documents"
+                    element={<SecretaryDocuments />}
                   />
                   <Route
                     path="/changepassword"

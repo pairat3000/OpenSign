@@ -112,6 +112,7 @@
       "Expired": "만료됨"
     },
     "Contactbook": "연락처",
+    "Secretary Documents": "비서 문서",
     "Settings": "설정",
     "Settings-Children": {
       "My Signature": "내 서명",
@@ -121,7 +122,8 @@
       "Teams": "팀",
       "Team-update-successfully": "팀이 성공적으로 업데이트되었습니다.",
       "Users": "사용자",
-      "Document Recheck": "문서 재확인"
+      "Document Recheck": "문서 재확인",
+      "Secretary Management": "비서 관리"
     },
     "Global SMTP": "글로벌 SMTP"
   },

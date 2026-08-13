@@ -112,6 +112,7 @@
       "Expired": "Scaduti"
     },
     "Contactbook": "Rubrica",
+    "Secretary Documents": "Documenti del segretario",
     "Settings": "Impostazioni",
     "Settings-Children": {
       "My Signature": "La mia firma",
@@ -121,7 +122,8 @@
       "Teams": "Team",
       "Team-update-successfully": "Team aggiornato con successo.",
       "Users": "Utenti",
-      "Document Recheck": "Verifica documento"
+      "Document Recheck": "Verifica documento",
+      "Secretary Management": "Gestione segretari"
     },
     "Global SMTP": "SMTP Globale"
   },

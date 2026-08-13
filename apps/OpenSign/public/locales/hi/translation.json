@@ -112,6 +112,7 @@
       "Expired": "समाप्त"
     },
     "Contactbook": "संपर्क पुस्तिका",
+    "Secretary Documents": "सचिव दस्तावेज़",
     "Settings": "सेटिंग्स",
     "Settings-Children": {
       "My Signature": "मेरा हस्ताक्षर",
@@ -121,7 +122,8 @@
       "Teams": "टीमें",
       "Team-update-successfully": "टीम सफलतापूर्वक अपडेट की गई।",
       "Users": "उपयोगकर्ता",
-      "Document Recheck": "दस्तावेज़ पुनः जांच"
+      "Document Recheck": "दस्तावेज़ पुनः जांच",
+      "Secretary Management": "सचिव प्रबंधन"
     },
     "Global SMTP": "ग्लोबल SMTP"
   },

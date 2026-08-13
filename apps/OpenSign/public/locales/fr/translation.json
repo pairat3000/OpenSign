@@ -112,6 +112,7 @@
       "Expired": "Expiré"
     },
     "Contactbook": "Carnet de contacts",
+    "Secretary Documents": "Documents du secrétariat",
     "Settings": "Paramètres",
     "Settings-Children": {
       "My Signature": "Ma signature",
@@ -121,7 +122,8 @@
       "Teams": "Équipe",
       "Team-update-successfully": "Équipe mise à jour avec succès.",
       "Users": "Utilisateurs",
-      "Document Recheck": "Vérification des documents"
+      "Document Recheck": "Vérification des documents",
+      "Secretary Management": "Gestion des secrétaires"
     },
     "Global SMTP": "SMTP Global"
   },
