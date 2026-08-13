@@ -674,7 +674,9 @@ const DocumentsReport = (props) => {
       from:
         doc?.SenderName ||
         doc?.ExtUserPtr?.Email,
-      html: emailEditorType === "basic" ? mail.body.basic : mail.body.advanced
+      html: emailEditorType === "basic" ? mail.body.basic : mail.body.advanced,
+      docId: doc?.objectId,
+      purpose: "resend"
     };
     try {
       const res = await axios.post(url, params, { headers: headers });

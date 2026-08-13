@@ -17,6 +17,7 @@ import PdfRequestFiles from "./pages/PdfRequestFiles";
 import Lazy from "./primitives/LazyPage";
 import Loader from "./primitives/Loader";
 import UserList from "./pages/UserList";
+import AdminDocumentAudit from "./pages/AdminDocumentAudit";
 import { serverUrl_fn } from "./constant/appinfo";
 import DocSuccessPage from "./pages/DocSuccessPage";
 import DragProvider from "./components/DragProivder";
@@ -91,6 +92,10 @@ function App() {
               />
             <Route element={<HomeLayout />}>
                   <Route path="/users" element={<UserList />} />
+                  <Route
+                    path="/document-audit"
+                    element={<AdminDocumentAudit />}
+                  />
                   <Route
                     path="/changepassword"
                     element={<Lazy Page={ChangePassword} />}

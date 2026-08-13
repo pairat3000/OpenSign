@@ -6,6 +6,14 @@ const userssetting = [
     pageType: "",
     description: "",
     objectId: "users"
+  },
+  {
+    icon: "fa-light fa-magnifying-glass",
+    title: "Document Recheck",
+    target: "_self",
+    pageType: "",
+    description: "",
+    objectId: "document-audit"
   }
 ];
 export const subSetting = [

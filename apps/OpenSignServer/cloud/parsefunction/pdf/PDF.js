@@ -190,6 +190,8 @@ async function sendNotifyMail(doc, signUser, mailProvider, publicUrl) {
         subject: subject,
         pdfName: pdfName,
         html: body,
+        docId: doc.objectId,
+        purpose: 'owner-notify',
         mailProvider: mailProvider,
       };
       await sendSystemMail({ params });
@@ -300,6 +302,8 @@ async function sendCompletedMail(obj) {
     cc: Cc?.length > 0 ? Cc : '',
     certificatePath: `./exports/signed_certificate_${doc.objectId}.pdf`,
     filename: docName,
+    docId: doc.objectId,
+    purpose: 'completion',
   };
   try {
     const res = await sendMailWithAttachment(params);

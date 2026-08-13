@@ -926,7 +926,9 @@ function PdfRequestFiles(
                             senderEmail,
                           html: replaceVar?.body
                             ? replaceVar?.body
-                            : mailTemplate(mailparam).body
+                            : mailTemplate(mailparam).body,
+                          docId: docId,
+                          purpose: "next-signer-notify"
                         };
                         await axios.post(url, params, { headers: headers });
                       } catch (error) {

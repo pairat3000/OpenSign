@@ -2,6 +2,7 @@ import formData from 'form-data';
 import Mailgun from 'mailgun.js';
 import { appName, smtpenable, smtpsecure, updateMailCount } from '../../Utils.js';
 import { createTransport } from 'nodemailer';
+import { logMailAttempt } from '../../utils/mailLogUtils.js';
 async function sendMailProvider(req) {
   const app = appName;
   const extUserId = req.params?.extUserId || '';
@@ -71,13 +72,13 @@ async function sendMailProvider(req) {
           return { status: 'success' };
         }
       } else {
-        return { status: 'error' };
+        return { status: 'error', error: 'No mail provider configured' };
       }
     }
   } catch (err) {
     console.log(`sendSystemMail Error: ${err}`);
     if (err) {
-      return { status: 'error' };
+      return { status: 'error', error: err?.message || String(err) };
     }
   } finally {
     if (transporterSMTP) {
@@ -88,6 +89,12 @@ async function sendMailProvider(req) {
 
 async function sendSystemMail(req) {
   const nonCustomMail = await sendMailProvider(req);
+  await logMailAttempt(req.params?.docId, {
+    recipient: req.params?.recipient,
+    purpose: req.params?.purpose,
+    status: nonCustomMail?.status,
+    error: nonCustomMail?.error,
+  });
   return nonCustomMail;
 }
 

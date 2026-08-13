@@ -120,7 +120,8 @@
       "Preferences": "Einstellungen",
       "Teams": "Teams",
       "Team-update-successfully": "Team erfolgreich aktualisiert.",
-      "Users": "Benutzer"
+      "Users": "Benutzer",
+      "Document Recheck": "Dokumentenprüfung"
     },
     "Global SMTP": "Globales SMTP"
   },

@@ -4616,7 +4616,9 @@ export const sendEmailToSigners = async (
           : defaultTemplate.subject,
         replyto: senderEmail,
         from: from,
-        html: replaceVar?.body ? replaceVar?.body : defaultTemplate.body
+        html: replaceVar?.body ? replaceVar?.body : defaultTemplate.body,
+        docId: pdfDetails?.[0]?.objectId,
+        purpose: "invite"
       };
 
       sendMail = await axios.post(url, params, { headers: headers });

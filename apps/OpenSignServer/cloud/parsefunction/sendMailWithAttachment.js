@@ -5,6 +5,7 @@ import Mailgun from 'mailgun.js';
 import { appName, smtpenable, smtpsecure, updateMailCount } from '../../Utils.js';
 import { createTransport } from 'nodemailer';
 import axios from 'axios';
+import { logMailAttempt } from '../../utils/mailLogUtils.js';
 
 function safeUnlink(filePath, label = 'file') {
   if (fs.existsSync(filePath)) {
@@ -174,14 +175,14 @@ async function sendMailProvider(params) {
               }
             } else {
               cleanupPaths.forEach(file => safeUnlink(file.path, file.label));
-              return { status: 'error' };
+              return { status: 'error', error: 'No mail provider configured' };
             }
           }
         }
       } catch (err) {
         console.log(`sendMailWithAttachment error: ${err}`);
         safeUnlink(testPdf, 'testPdf');
-        if (err) return { status: 'error' };
+        if (err) return { status: 'error', error: err?.message || String(err) };
       }
     } else {
       const from = params.from || '';
@@ -218,14 +219,14 @@ async function sendMailProvider(params) {
             return { status: 'success' };
           }
         } else {
-          return { status: 'error' };
+          return { status: 'error', error: 'No mail provider configured' };
         }
       }
     }
   } catch (err) {
     console.log(`sendMailWithAttachment Error: ${err}`);
     if (err) {
-      return { status: 'error' };
+      return { status: 'error', error: err?.message || String(err) };
     }
   } finally {
     if (transporterSMTP) {
@@ -237,5 +238,11 @@ async function sendMailProvider(params) {
 // `sendMailWithAttachment` function is used to send completion and forwarded document mail and it also fix security issue.
 export default async function sendMailWithAttachment(params) {
   const nonCustomMail = await sendMailProvider(params);
+  await logMailAttempt(params?.docId, {
+    recipient: params?.recipient,
+    purpose: params?.purpose,
+    status: nonCustomMail?.status,
+    error: nonCustomMail?.error,
+  });
   return nonCustomMail;
 }

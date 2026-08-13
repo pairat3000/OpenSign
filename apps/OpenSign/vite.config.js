@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: env.PORT || 3000, // Same port as CRA
       open: true,
-      allowedHosts: [".trycloudflare.com"]
+      allowedHosts: [".trycloudflare.com", ".thitaphat.online"]
     },
     test: {
       environment: "jsdom",
