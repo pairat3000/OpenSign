@@ -1,9 +1,9 @@
 # Dev handoff — Mail-send logging + "Document Recheck" admin tool
 
 **Branch:** `staging`
-**Commit:** `f351cd14`
+**Commits:** `f351cd14` (feature) → `80e9bae9` (docs) → `531552d8` (UI polish, final)
 **Pushed to:** `github.com/pairat3000/OpenSign` and `gitlab.dohome.technology/thitaphatana-san-sdl/opensign-golf`, both `staging`
-**Status:** Implemented and tested (API-level, with a real admin session token). Not yet exercised through a full browser click-through by an end user.
+**Status:** Final. Implemented, tested API-level, and reviewed live in-browser by an admin (UI approved as-is).
 
 ---
 
@@ -32,14 +32,24 @@ Note: **template mail sends aren't logged** — `MailLog` only exists on `contra
 New cloud function `apps/OpenSignServer/cloud/parsefunction/adminAuditDocuments.js` (registered as `adminauditdocuments` in `cloud/main.js`):
 - Requires the caller's `contracts_Users.UserRole` to be `contracts_Admin` or `contracts_OrgAdmin` (same check pattern as `resetPassword.js`), else throws `OPERATION_FORBIDDEN`.
 - Takes `creatorEmail` (required) + `documentName` (optional substring match), resolves the creator within the admin's own tenant, and returns up to 50 of their documents with:
-  - `status` — `Completed | Declined | Not yet sent | In progress (waiting on: ...)`, computed from existing `IsCompleted`/`IsDeclined`/`AuditTrail`/`Placeholders` (no new tracking needed for this part).
+  - `status` — clean enum: `Completed | Declined | Not yet sent | In progress`, computed from existing `IsCompleted`/`IsDeclined`/`AuditTrail`/`Placeholders` (no new tracking needed for this part).
+  - `waitingOn` — array of signer names still pending (only populated when `status` is `In progress`), returned separately from `status` rather than baked into a formatted string, so the UI can render each name as its own chip.
+  - `hasIssue` — boolean, true unless the only diagnosis line is "ไม่พบความผิดปกติ" — lets the UI show a ⚠️/✅ indicator per document without the admin having to expand every row.
   - `sendInOrder` — the raw `SendinOrder` boolean.
   - `mailLog` — the document's `MailLog`, newest first.
   - `diagnosis` — plain-Thai findings generated from simple rules: any failed send, any signer who was never emailed at all, or (for `SendinOrder` documents) a later signer having signed while an earlier one hasn't.
 
-New page `apps/OpenSign/src/pages/AdminDocumentAudit.jsx` — two inputs (email, optional document name), results as expandable rows showing status/Send-in-order/mail-log table/diagnosis list. **Read-only by design** — no resend button in this tool; admins already have Resend on the document itself.
+New page `apps/OpenSign/src/pages/AdminDocumentAudit.jsx` — two inputs (email, optional document name), results as expandable rows. **Read-only by design** — no resend button in this tool; admins already have Resend on the document itself.
 
-Access is gated three ways: sidebar link hidden for non-admins (`apps/OpenSign/src/json/menuJson.js`, added alongside the existing "Users" admin-only item so it inherits the same `isAdmin` gate in `Sidebar.jsx`), the cloud function rejects non-admins server-side, and the page itself now redirects non-admins to the dashboard if they hit the URL directly.
+**Final UI** (after a polish pass based on live admin feedback):
+- Each result row shows a ⚠️/✅ icon up front (from `hasIssue`) so problems are visible without expanding anything.
+- Status rendered as a colored badge with a Thai label (green/red/amber/gray for Completed/Declined/In progress/Not yet sent).
+- `waitingOn` rendered as individual outline chips ("รอลงนามจาก: ...") instead of a comma-joined string.
+- Document creation date shown under the title, so same-named documents (a common test-data pattern) are distinguishable at a glance.
+- A "▸/▾" chevron makes the expand/collapse affordance obvious, and a "พบ N เอกสาร" count sits above the results.
+- Inside the expanded view, the mail-history table's `Purpose` column is translated to Thai labels (คำเชิญ/ส่งซ้ำ/แจ้งเตือนคนถัดไป/แจ้งเจ้าของเอกสาร/อีเมลตอนเสร็จ) instead of the raw `next-signer-notify`-style strings, and each diagnosis line gets its own ⚠️/✅ prefix.
+
+Access is gated three ways: sidebar link hidden for non-admins (`apps/OpenSign/src/json/menuJson.js`, added alongside the existing "Users" admin-only item so it inherits the same `isAdmin` gate in `Sidebar.jsx`), the cloud function rejects non-admins server-side, and the page itself redirects non-admins to the dashboard if they hit the URL directly.
 
 ## 3. Also fixed in this pass
 
@@ -50,10 +60,11 @@ Access is gated three ways: sidebar link hidden for non-admins (`apps/OpenSign/s
 
 - Sent a real mail via `sendmailv3` with `docId`/`purpose` set → confirmed a `Status: "success"` entry landed in `MailLog`.
 - Forced a failure (invalid recipient) → confirmed a `Status: "error"` entry with a real error message landed in `MailLog`, not just a console log.
-- Called `adminauditdocuments` with a real admin session token → got back the right document with correct `status`/`sendInOrder`/`mailLog`/`diagnosis` (including the flagged failed send).
+- Called `adminauditdocuments` with a real admin session token → got back the right document with correct `status`/`waitingOn`/`hasIssue`/`sendInOrder`/`mailLog`/`diagnosis` (including the flagged failed send).
 - Called it with no session token → correctly rejected (`INVALID_SESSION_TOKEN`).
 - Called it with an email that matches no user → returns `{ documents: [] }`, no error.
+- **Live browser walkthrough by an admin** on the actual deployed test instance: searched by creator email, reviewed the results UI (status badges, waiting-on chips, issue icons, mail-history table), requested the UI polish described above, re-tested, and approved the result as final.
 
 ## 5. Known follow-ups
 
-- Not yet verified by an actual admin clicking through the UI in a browser — API-level testing only so far.
+None outstanding — feature is considered complete pending real deployment (see the separate SMTP/Comments-feature handoff doc for the general "not yet deployed to a persistent server" note, which still applies here too).
