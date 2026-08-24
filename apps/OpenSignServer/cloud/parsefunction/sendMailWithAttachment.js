@@ -31,6 +31,7 @@ async function sendMailProvider(params) {
         host: process.env.SMTP_HOST,
         port: process.env.SMTP_PORT || 465,
         secure: smtpsecure,
+        family: 4,
       };
 
       // ✅ Add auth only if BOTH username & password exist
