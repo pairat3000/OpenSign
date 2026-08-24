@@ -35,17 +35,25 @@ export default async function getSecretaryDocumentDetail(request) {
   const links = await linksQuery.find({ useMasterKey: true });
 
   let isAuthorized = false;
+  let hasContentPermission = false;
   for (const link of links) {
     const signerUser = link.get('SignerUserId');
     if (!signerUser) continue;
     const contactRows = await getSignerContactRows(signerUser);
     if (contactRows.some(c => docSignerContactIds.has(c.id))) {
       isAuthorized = true;
+      hasContentPermission = !!link.get('CanViewContent');
       break;
     }
   }
   if (!isAuthorized) {
     throw new Parse.Error(Parse.Error.OPERATION_FORBIDDEN, 'No active secretary assignment for this document.');
+  }
+  if (!hasContentPermission) {
+    throw new Parse.Error(
+      Parse.Error.OPERATION_FORBIDDEN,
+      'No permission to view this document\'s content.'
+    );
   }
 
   return {

@@ -64,16 +64,18 @@ function AdminSecretaryManagement() {
     }
   };
 
-  const handleToggle = async (assignmentId, nextValue) => {
+  const handleToggle = async (assignmentId, field, nextValue) => {
     setErrorMsg("");
     try {
-      await Parse.Cloud.run("togglesecretaryassignment", {
+      const res = await Parse.Cloud.run("togglesecretaryassignment", {
         assignmentId,
-        isActive: nextValue
+        [field]: nextValue
       });
       setAssignments((prev) =>
         prev.map((a) =>
-          a.objectId === assignmentId ? { ...a, isActive: nextValue } : a
+          a.objectId === assignmentId
+            ? { ...a, isActive: res.isActive, canViewContent: res.canViewContent }
+            : a
         )
       );
     } catch (err) {
@@ -142,13 +144,14 @@ function AdminSecretaryManagement() {
                 <th>Secretary</th>
                 <th>ผู้ลงนาม</th>
                 <th>สร้างเมื่อ</th>
-                <th>สถานะ</th>
+                <th>ดูรายการเอกสาร</th>
+                <th>ดูเนื้อหาเอกสาร</th>
               </tr>
             </thead>
             <tbody>
               {assignments?.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="text-center text-base-content/60 py-6">
+                  <td colSpan={5} className="text-center text-base-content/60 py-6">
                     ยังไม่มีการมอบหมาย
                   </td>
                 </tr>
@@ -179,11 +182,36 @@ function AdminSecretaryManagement() {
                         className="op-toggle op-toggle-success op-toggle-sm"
                         checked={a.isActive}
                         onChange={(e) =>
-                          handleToggle(a.objectId, e.target.checked)
+                          handleToggle(a.objectId, "isActive", e.target.checked)
                         }
                       />
                       <span className="text-xs">
                         {a.isActive ? "เปิดใช้งาน" : "ปิดใช้งาน"}
+                      </span>
+                    </label>
+                  </td>
+                  <td>
+                    <label
+                      className={`flex items-center gap-2 ${
+                        a.isActive ? "cursor-pointer" : "cursor-not-allowed opacity-40"
+                      }`}
+                      title={
+                        a.isActive
+                          ? ""
+                          : "ต้องเปิดสิทธิ์ดูรายการเอกสารก่อน"
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        className="op-toggle op-toggle-success op-toggle-sm"
+                        checked={a.canViewContent}
+                        disabled={!a.isActive}
+                        onChange={(e) =>
+                          handleToggle(a.objectId, "canViewContent", e.target.checked)
+                        }
+                      />
+                      <span className="text-xs">
+                        {a.canViewContent ? "เปิดใช้งาน" : "ปิดใช้งาน"}
                       </span>
                     </label>
                   </td>

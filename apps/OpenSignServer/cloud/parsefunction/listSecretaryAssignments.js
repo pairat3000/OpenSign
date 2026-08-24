@@ -29,6 +29,7 @@ export default async function listSecretaryAssignments(request) {
     return {
       objectId: r.objectId,
       isActive: !!r.IsActive,
+      canViewContent: !!r.CanViewContent,
       createdAt: r.createdAt,
       secretary: { name: r.SecretaryUserId?.Name, email: r.SecretaryUserId?.Email },
       signer: { name: r.SignerUserId?.Name, email: r.SignerUserId?.Email },

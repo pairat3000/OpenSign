@@ -60,6 +60,9 @@ export default async function assignSecretary(request) {
   assignment.set('SignerUserId', signerUser);
   assignment.set('TenantId', tenantId);
   assignment.set('IsActive', true);
+  // Content access is a separate, deliberate grant - starts off even though
+  // list access starts on, per the two-tier permission model.
+  assignment.set('CanViewContent', false);
   assignment.set('CreatedBy', request.user);
   await assignment.save(null, { useMasterKey: true });
 
