@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import pad from "../../assets/images/pad.svg";
 import recreatedoc from "../../assets/images/recreatedoc.png";
 import { Link, useLocation, useNavigate } from "react-router";
@@ -38,6 +38,15 @@ import CustomizeMail from "../../components/pdf/CustomizeMail";
 import { useSelector } from "react-redux";
 import EmailEditor from "../../components/emaileditor";
 
+// Columns with well-defined, safe-to-sort values. Any other column (Title,
+// File, Signers, action buttons, ...) stays a plain, non-clickable header.
+const SORTABLE_FIELD_ACCESSORS = {
+  Owner: (row) => row?.ExtUserPtr?.Name || "",
+  "Created Date": (row) => row?.createdAt || "",
+  "Updated Date": (row) => row?.updatedAt || "",
+  "Sent Date": (row) => row?.DocSentAt?.iso || ""
+};
+
 const DocumentsReport = (props) => {
   const copyUrlRef = useRef(null);
   const titleRef = useRef(null);
@@ -51,6 +60,7 @@ const DocumentsReport = (props) => {
   const isDashboard =
     location?.pathname === "/dashboard/35KBoSgoAK" ? true : false;
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [actLoader, setActLoader] = useState({});
   const [isDeleteModal, setIsDeleteModal] = useState({});
   const [isRevoke, setIsRevoke] = useState({});
@@ -342,10 +352,31 @@ const DocumentsReport = (props) => {
   });
 
 
+  const handleSort = (col) => {
+    if (!SORTABLE_FIELD_ACCESSORS[col]) return;
+    setSortConfig((prev) =>
+      prev.key === col
+        ? { key: col, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { key: col, direction: "asc" }
+    );
+  };
+
   // Get current list
   const indexOfLastDoc = currentPage * props.docPerPage;
   const indexOfFirstDoc = indexOfLastDoc - props.docPerPage;
-  const sortedList = props.List;
+  const sortedList = useMemo(() => {
+    const accessor = SORTABLE_FIELD_ACCESSORS[sortConfig.key];
+    if (!accessor) return props.List;
+    const list = [...(props.List || [])];
+    list.sort((a, b) => {
+      const valueA = accessor(a);
+      const valueB = accessor(b);
+      if (valueA < valueB) return sortConfig.direction === "asc" ? -1 : 1;
+      if (valueA > valueB) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+    return list;
+  }, [props.List, sortConfig]);
   const currentList = sortedList?.slice(indexOfFirstDoc, indexOfLastDoc);
 
   // Change page
@@ -1187,12 +1218,30 @@ const DocumentsReport = (props) => {
           <table className="op-table border-collapse w-full mb-4">
             <thead className="text-[14px] text-center">
               <tr className="border-y-[1px]">
-                {props.heading?.map((item, i) => (
-                  <th key={i} className="p-2">
-                    {props.columnLabels?.[item] ||
-                      t(`report-heading.${item}`, { defaultValue: item })}
-                  </th>
-                ))}
+                {props.heading?.map((item, i) => {
+                  const isSortable = !!SORTABLE_FIELD_ACCESSORS[item];
+                  const isActiveSort = sortConfig.key === item;
+                  return (
+                    <th
+                      key={i}
+                      className={`p-2 ${isSortable ? "cursor-pointer select-none" : ""}`}
+                      onClick={isSortable ? () => handleSort(item) : undefined}
+                      title={isSortable ? t("sort-by", { defaultValue: "Sort" }) : undefined}
+                    >
+                      {props.columnLabels?.[item] ||
+                        t(`report-heading.${item}`, { defaultValue: item })}
+                      {isSortable && (
+                        <span className="ml-1 text-[10px] inline-block opacity-60">
+                          {isActiveSort
+                            ? sortConfig.direction === "asc"
+                              ? "▲"
+                              : "▼"
+                            : "⇅"}
+                        </span>
+                      )}
+                    </th>
+                  );
+                })}
                 {props.actions?.length > 0 && (
                   <th className="p-2 text-transparent pointer-events-none">
                     {t("action")}

@@ -309,7 +309,7 @@ export default function reportJson(id) {
     case "d9k3UfYHBc":
       return {
         reportName: "Recently sent for signatures",
-        heading: dashboardReportHead,
+        heading: [...dashboardReportHead, "Sent Date"],
         actions: [
           {
             btnId: "1999",
@@ -383,7 +383,8 @@ export default function reportJson(id) {
     case "5Go51Q7T8r":
       return {
         reportName: "Recent signature requests",
-        heading: dashboardReportHead,
+        heading: [...dashboardReportHead, "Created Date"],
+        columnLabels: { "Created Date": "Received Date" },
         actions: [
           {
             btnId: "2001",

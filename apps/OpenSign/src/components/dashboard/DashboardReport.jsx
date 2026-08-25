@@ -13,6 +13,7 @@ function DashboardReport(props) {
   const [reportName, setReportName] = useState("");
   const [actions, setActions] = useState([]);
   const [heading, setHeading] = useState([]);
+  const [columnLabels, setColumnLabels] = useState({});
   const [isNextRecord, setIsNextRecord] = useState(false);
   const [isMoreDocs, setIsMoreDocs] = useState(true);
   const abortController = new AbortController();
@@ -107,6 +108,7 @@ function DashboardReport(props) {
         setActions(json.actions);
         setReportName(json.reportName);
         setHeading(json.heading);
+        setColumnLabels(json.columnLabels || {});
         const currentUser = Parse.User.current().id;
 
         const headers = {
@@ -203,6 +205,7 @@ function DashboardReport(props) {
               setList={setList}
               actions={actions}
               heading={heading}
+              columnLabels={columnLabels}
               setIsNextRecord={setIsNextRecord}
               isMoreDocs={isMoreDocs}
               docPerPage={docPerPage}
