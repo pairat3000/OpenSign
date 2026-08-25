@@ -53,8 +53,10 @@ export default async function getPresignedUrl(url) {
     const key = extractKeyFromUrl(url);
 
     const command = new GetObjectCommand({ Bucket: bucket, Key: key });
-    // Expires: 160 seconds
-    const expiresIn = 160;
+    // Matches the S3 adapter's own presignedUrlExpires (index.js) - 160s was
+    // too tight once Render's latency + the browser's PDF fetch/render time
+    // are both in the budget, causing the signed URL to expire mid-load.
+    const expiresIn = 900;
 
     // presignedGETURL return presignedUrl with expires time
     const presignedGETURL = await presign(client, command, { expiresIn });
