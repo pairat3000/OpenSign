@@ -1,0 +1,493 @@
+<!doctype html>
+<title>OpenSign Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1b1e27;
+    --ink-soft: #565d6d;
+    --surface: #f3f1eb;
+    --card: #ffffff;
+    --card-border: #dedad0;
+    --line: #6b7280;
+    --line-soft: #a8a49a;
+
+    --c-client: #5b6472;
+    --c-frontend: #4338ca;
+    --c-frontend-soft: #eef0fd;
+    --c-backend: #7c2d92;
+    --c-backend-soft: #f6ecf9;
+    --c-data: #0d7a70;
+    --c-data-soft: #e7f5f2;
+    --c-storage: #b45309;
+    --c-storage-soft: #fbf0e0;
+    --c-email: #be185d;
+    --c-email-soft: #fbebf1;
+    --c-git: #4b5160;
+    --c-git-soft: #eceef1;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #e9eaef;
+      --ink-soft: #a3a8b5;
+      --surface: #14151b;
+      --card: #1c1e26;
+      --card-border: #33353f;
+      --line: #9aa0ae;
+      --line-soft: #565b68;
+
+      --c-frontend: #a5b4fc;
+      --c-frontend-soft: #262a45;
+      --c-backend: #e0a3ee;
+      --c-backend-soft: #35223c;
+      --c-data: #6ee7d8;
+      --c-data-soft: #123330;
+      --c-storage: #f6ad55;
+      --c-storage-soft: #3a2a14;
+      --c-email: #f4a8c6;
+      --c-email-soft: #3a1e2a;
+      --c-git: #c3c7d1;
+      --c-git-soft: #262831;
+      --c-client: #b7bcc7;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ink: #e9eaef;
+    --ink-soft: #a3a8b5;
+    --surface: #14151b;
+    --card: #1c1e26;
+    --card-border: #33353f;
+    --line: #9aa0ae;
+    --line-soft: #565b68;
+
+    --c-frontend: #a5b4fc;
+    --c-frontend-soft: #262a45;
+    --c-backend: #e0a3ee;
+    --c-backend-soft: #35223c;
+    --c-data: #6ee7d8;
+    --c-data-soft: #123330;
+    --c-storage: #f6ad55;
+    --c-storage-soft: #3a2a14;
+    --c-email: #f4a8c6;
+    --c-email-soft: #3a1e2a;
+    --c-git: #c3c7d1;
+    --c-git-soft: #262831;
+    --c-client: #b7bcc7;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--surface);
+    color: var(--ink);
+    font-family: "Source Sans 3", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 56px 28px 80px;
+  }
+
+  header.masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 28px;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  h1 {
+    font-family: "Archivo", sans-serif;
+    font-weight: 800;
+    font-size: clamp(28px, 4vw, 38px);
+    line-height: 1.08;
+    margin: 0;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+
+  .dek {
+    font-size: 16px;
+    line-height: 1.55;
+    max-width: 62ch;
+    color: var(--ink-soft);
+    margin: 4px 0 0;
+  }
+
+  .dek strong { color: var(--ink); font-weight: 600; }
+
+  figure {
+    margin: 0 0 48px;
+  }
+
+  .diagram-frame {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 20px 20px 8px;
+    overflow-x: auto;
+  }
+
+  svg.diagram {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-width: 640px;
+    color: var(--line);
+  }
+
+  .node-label {
+    font-family: "Archivo", sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .node-role {
+    font-family: "Source Sans 3", sans-serif;
+    font-weight: 500;
+    font-size: 11px;
+  }
+  .node-addr {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9.5px;
+  }
+  .edge-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    fill: var(--ink-soft);
+  }
+  .lane-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    fill: var(--line-soft);
+  }
+
+  figcaption {
+    margin-top: 14px;
+    padding: 0 4px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    align-items: baseline;
+  }
+  figcaption .legend-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  figcaption .swatch-line {
+    width: 22px;
+    height: 0;
+    border-top: 2px solid var(--line);
+  }
+  figcaption .swatch-line.dashed {
+    border-top-style: dashed;
+    border-color: var(--line-soft);
+  }
+
+  h2 {
+    font-family: "Archivo", sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    margin: 0 0 4px;
+    letter-spacing: -0.005em;
+  }
+  .section-note {
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    margin: 0 0 18px;
+    max-width: 70ch;
+    line-height: 1.5;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    background: var(--card);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 640px;
+    font-size: 13.5px;
+  }
+
+  thead th {
+    text-align: left;
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 500;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--card-border);
+  }
+
+  tbody td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--card-border);
+    vertical-align: top;
+    font-variant-numeric: tabular-nums;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .layer-pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .svc-name {
+    font-family: "Archivo", sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    display: block;
+  }
+
+  .addr {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    word-break: break-all;
+  }
+
+  footer.note {
+    margin-top: 40px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--card-border);
+    padding-top: 18px;
+    line-height: 1.6;
+    max-width: 70ch;
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <span class="eyebrow">Infrastructure reference — staging</span>
+    <h1>Where OpenSign actually runs</h1>
+    <p class="dek">
+      Migrated off a self-hosted box behind a personal domain (IT kept flagging it as
+      newly-registered and blocking it) onto <strong>six free-tier services</strong>, wired
+      together by two git remotes. This is the current shape of it.
+    </p>
+  </header>
+
+  <figure>
+    <div class="diagram-frame">
+      <svg class="diagram" viewBox="0 0 1000 590" role="img"
+        aria-label="Architecture diagram: a browser loads the app from Vercel, Vercel calls the Render API, and Render talks to MongoDB Atlas, Cloudflare R2, and Resend. Separately, pushes to the GitHub staging branch trigger auto-deploys on Vercel and Render, and are mirrored manually to GitLab.">
+
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+          </marker>
+          <marker id="arrowSoft" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--line-soft)" />
+          </marker>
+        </defs>
+
+        <!-- lane labels -->
+        <text x="140" y="108" class="lane-label" text-anchor="middle">source control</text>
+        <text x="560" y="108" class="lane-label" text-anchor="middle">hosting</text>
+        <text x="860" y="108" class="lane-label" text-anchor="middle">downstream services</text>
+
+        <!-- ===== edges (drawn first, under nodes) ===== -->
+
+        <!-- Browser -> Vercel -->
+        <line x1="560" y1="86" x2="560" y2="154" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrow)" />
+        <text x="574" y="122" class="edge-label">loads SPA</text>
+
+        <!-- Vercel -> Render -->
+        <line x1="560" y1="226" x2="560" y2="294" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrow)" />
+        <text x="574" y="264" class="edge-label">API calls</text>
+        <text x="574" y="277" class="edge-label">(URL baked in at build)</text>
+
+        <!-- Render -> Atlas / R2 / Resend fan-out -->
+        <path d="M 480 362 C 420 400, 340 420, 280 452" fill="none" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrow)" />
+        <path d="M 560 362 L 560 452" fill="none" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrow)" />
+        <path d="M 640 362 C 700 400, 780 420, 840 452" fill="none" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrow)" />
+
+        <text x="330" y="405" class="edge-label">Mongo driver</text>
+        <text x="330" y="418" class="edge-label">(TLS, port 27017)</text>
+
+        <text x="572" y="410" class="edge-label">S3 API</text>
+        <text x="572" y="423" class="edge-label">upload / serve files</text>
+
+        <text x="700" y="405" class="edge-label" text-anchor="end">HTTPS POST</text>
+        <text x="700" y="418" class="edge-label" text-anchor="end">/emails</text>
+
+        <!-- GitHub -> GitLab -->
+        <line x1="140" y1="226" x2="140" y2="294" stroke="currentColor" stroke-width="1.6" marker-end="url(#arrow)" />
+        <text x="154" y="264" class="edge-label">mirror push</text>
+        <text x="154" y="277" class="edge-label">(manual)</text>
+
+        <!-- GitHub -> Vercel (dashed deploy trigger) -->
+        <line x1="225" y1="190" x2="465" y2="190" stroke="var(--line-soft)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrowSoft)" />
+        <text x="345" y="182" class="edge-label" text-anchor="middle">deploy on push</text>
+
+        <!-- GitHub -> Render (dashed deploy trigger) -->
+        <line x1="228" y1="212" x2="475" y2="322" stroke="var(--line-soft)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrowSoft)" />
+        <text x="300" y="290" class="edge-label" text-anchor="middle" transform="rotate(24 300 290)">deploy on push</text>
+
+        <!-- ===== nodes ===== -->
+
+        <!-- Browser -->
+        <g>
+          <rect x="470" y="26" width="180" height="60" rx="10" fill="var(--card)" stroke="var(--c-client)" stroke-width="1.6" />
+          <text x="560" y="52" text-anchor="middle" class="node-label" fill="var(--c-client)">Browser</text>
+          <text x="560" y="70" text-anchor="middle" class="node-role" fill="var(--ink-soft)">signer / admin / secretary</text>
+        </g>
+
+        <!-- GitHub -->
+        <g>
+          <rect x="50" y="160" width="180" height="66" rx="10" fill="var(--c-git-soft)" stroke="var(--c-git)" stroke-width="1.6" />
+          <text x="140" y="186" text-anchor="middle" class="node-label" fill="var(--c-git)">GitHub</text>
+          <text x="140" y="203" text-anchor="middle" class="node-role" fill="var(--ink-soft)">primary repo · staging</text>
+          <text x="140" y="217" text-anchor="middle" class="node-addr" fill="var(--ink-soft)">pairat3000/OpenSign</text>
+        </g>
+
+        <!-- GitLab -->
+        <g>
+          <rect x="50" y="300" width="180" height="66" rx="10" fill="var(--c-git-soft)" stroke="var(--c-git)" stroke-width="1.6" />
+          <text x="140" y="326" text-anchor="middle" class="node-label" fill="var(--c-git)">GitLab</text>
+          <text x="140" y="343" text-anchor="middle" class="node-role" fill="var(--ink-soft)">mirror copy</text>
+          <text x="140" y="357" text-anchor="middle" class="node-addr" fill="var(--ink-soft)">…/opensign-golf</text>
+        </g>
+
+        <!-- Vercel -->
+        <g>
+          <rect x="470" y="160" width="180" height="66" rx="10" fill="var(--c-frontend-soft)" stroke="var(--c-frontend)" stroke-width="1.8" />
+          <text x="560" y="186" text-anchor="middle" class="node-label" fill="var(--c-frontend)">Vercel</text>
+          <text x="560" y="203" text-anchor="middle" class="node-role" fill="var(--ink-soft)">frontend · React / Vite build</text>
+          <text x="560" y="217" text-anchor="middle" class="node-addr" fill="var(--ink-soft)">open-sign-ruby.vercel.app</text>
+        </g>
+
+        <!-- Render -->
+        <g>
+          <rect x="470" y="300" width="180" height="66" rx="10" fill="var(--c-backend-soft)" stroke="var(--c-backend)" stroke-width="1.8" />
+          <text x="560" y="326" text-anchor="middle" class="node-label" fill="var(--c-backend)">Render</text>
+          <text x="560" y="343" text-anchor="middle" class="node-role" fill="var(--ink-soft)">backend · Parse Server / Express</text>
+          <text x="560" y="357" text-anchor="middle" class="node-addr" fill="var(--ink-soft)">opensign-jnjk.onrender.com</text>
+        </g>
+
+        <!-- Atlas -->
+        <g>
+          <rect x="190" y="454" width="180" height="66" rx="10" fill="var(--c-data-soft)" stroke="var(--c-data)" stroke-width="1.8" />
+          <text x="280" y="480" text-anchor="middle" class="node-label" fill="var(--c-data)">MongoDB Atlas</text>
+          <text x="280" y="497" text-anchor="middle" class="node-role" fill="var(--ink-soft)">database · free M0 cluster</text>
+          <text x="280" y="511" text-anchor="middle" class="node-addr" fill="var(--ink-soft)">OpenSignDB</text>
+        </g>
+
+        <!-- R2 -->
+        <g>
+          <rect x="470" y="454" width="180" height="66" rx="10" fill="var(--c-storage-soft)" stroke="var(--c-storage)" stroke-width="1.8" />
+          <text x="560" y="480" text-anchor="middle" class="node-label" fill="var(--c-storage)">Cloudflare R2</text>
+          <text x="560" y="497" text-anchor="middle" class="node-role" fill="var(--ink-soft)">file storage · S3-compatible</text>
+          <text x="560" y="511" text-anchor="middle" class="node-addr" fill="var(--ink-soft)">opensign-files</text>
+        </g>
+
+        <!-- Resend -->
+        <g>
+          <rect x="750" y="454" width="180" height="66" rx="10" fill="var(--c-email-soft)" stroke="var(--c-email)" stroke-width="1.8" />
+          <text x="840" y="480" text-anchor="middle" class="node-label" fill="var(--c-email)">Resend</text>
+          <text x="840" y="497" text-anchor="middle" class="node-role" fill="var(--ink-soft)">email · HTTP API</text>
+          <text x="840" y="511" text-anchor="middle" class="node-addr" fill="var(--ink-soft)">onboarding@resend.dev</text>
+        </g>
+
+      </svg>
+    </div>
+    <figcaption>
+      <span class="legend-key"><span class="swatch-line"></span> runtime traffic</span>
+      <span class="legend-key"><span class="swatch-line dashed"></span> deploy trigger, on git push</span>
+    </figcaption>
+  </figure>
+
+  <section>
+    <h2>Every address, in one place</h2>
+    <p class="section-note">
+      No production domain anywhere in this stack on purpose — each host's own subdomain
+      (<code>*.vercel.app</code>, <code>*.onrender.com</code>) is old enough that the
+      corporate firewall doesn't flag it the way it flagged the personal domain.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Layer</th><th>Service</th><th>Role</th><th>Address</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="layer-pill" style="background:var(--c-frontend-soft); color:var(--c-frontend);">frontend</span></td>
+            <td><span class="svc-name">Vercel</span></td>
+            <td>Serves the built React app. All <code>REACT_APP_*</code> config is baked in at build time, not read at runtime.</td>
+            <td class="addr">open-sign-ruby.vercel.app</td>
+          </tr>
+          <tr>
+            <td><span class="layer-pill" style="background:var(--c-backend-soft); color:var(--c-backend);">backend</span></td>
+            <td><span class="svc-name">Render</span></td>
+            <td>Parse Server + Express. Free tier — sleeps after 15 min idle, ~30–60s cold start.</td>
+            <td class="addr">opensign-jnjk.onrender.com</td>
+          </tr>
+          <tr>
+            <td><span class="layer-pill" style="background:var(--c-data-soft); color:var(--c-data);">database</span></td>
+            <td><span class="svc-name">MongoDB Atlas</span></td>
+            <td>Documents, users, sessions. Free M0 cluster; network access opened to 0.0.0.0/0 for Render.</td>
+            <td class="addr">cluster0.r7voerq.mongodb.net</td>
+          </tr>
+          <tr>
+            <td><span class="layer-pill" style="background:var(--c-storage-soft); color:var(--c-storage);">storage</span></td>
+            <td><span class="svc-name">Cloudflare R2</span></td>
+            <td>Uploaded files, signed PDFs, profile pictures. Persistent — survives a Render redeploy, unlike local disk.</td>
+            <td class="addr">pub-e0f1672a…r2.dev</td>
+          </tr>
+          <tr>
+            <td><span class="layer-pill" style="background:var(--c-email-soft); color:var(--c-email);">email</span></td>
+            <td><span class="svc-name">Resend</span></td>
+            <td>Sends via HTTPS, not SMTP — Render blocks outbound SMTP entirely on the free tier. Sandbox sender only sends to the account owner until a domain is verified.</td>
+            <td class="addr">api.resend.com</td>
+          </tr>
+          <tr>
+            <td><span class="layer-pill" style="background:var(--c-git-soft); color:var(--c-git);">source</span></td>
+            <td><span class="svc-name">GitHub</span></td>
+            <td>Primary repo. Pushing <code>staging</code> auto-deploys both Vercel and Render.</td>
+            <td class="addr">github.com/pairat3000/OpenSign</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="note">
+    Zero fixed cost across the stack — every service above is on its free tier, and none of
+    them required a card except Cloudflare (R2 billing must be enabled to use it, though usage
+    stays at $0 inside the 10GB free allowance). The only thing this setup can't yet do is send
+    real signer-invite emails to third parties — that needs a verified sending domain on Resend.
+  </footer>
+
+</div>
