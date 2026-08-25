@@ -3,7 +3,7 @@
 **Branch:** `staging`
 **Commits:** `707e5426` (port fix + vercel.json) → `5493cd96` (gitignore fix) → `041cd69c` (SMTP IPv4 fix) → `4878e069` (Resend fallback, final)
 **Pushed to:** `github.com/pairat3000/OpenSign` and `gitlab.dohome.technology/thitaphatana-san-sdl/opensign-golf`, both `staging`
-**Status:** Final. Deployed, verified end-to-end (login, data, email), and confirmed reachable from the network that previously blocked the old setup.
+**Status:** Final. Deployed, verified end-to-end (login, data, email, persistent file storage), and confirmed reachable from the network that previously blocked the old setup.
 
 ---
 
@@ -18,7 +18,7 @@ Moved to three free-tier hosted services, none of which need a personally-owned 
 - **Frontend → Vercel** (Hobby plan, free, no card): static Vite build, root directory `apps/OpenSign`, build command `npm run build`, output directory `build`.
 - **Backend → Render** (free Web Service, no card): `apps/OpenSignServer`, build `npm install`, start `node index.js`.
 - **Database → MongoDB Atlas** (free M0 cluster, no card): existing local data (`OpenSignDB`) migrated over in full — all 18 collections, including documents, users, sessions, and the Secretary-feature test data from the previous session.
-- **File storage**: left on `USE_LOCAL=true` (Render's local disk) — a deliberate zero-cost tradeoff. Uploaded/signed PDFs may be lost on a Render redeploy/restart; acceptable for a testing environment, not for production.
+- **File storage → Cloudflare R2** (free 10GB tier; required adding a card to enable R2 billing on the Cloudflare account, though usage stays $0 within the free tier). Initially left on `USE_LOCAL=true` (Render's local disk) as a zero-card tradeoff, but that turned out to be a real problem in practice: every redeploy wiped all uploaded files, including user profile pictures, which surfaced as "why does my profile picture keep disappearing." Switched to R2 (config-only change, no code — the existing `@parse/s3-files-adapter` / `DO_*` env vars already used for DigitalOcean Spaces work as-is against R2's S3-compatible API) once that cost was accepted. Verified a file survives a redeploy end-to-end before considering this closed.
 
 ### Code changes required
 
@@ -45,7 +45,9 @@ Currently configured with Resend's free tier and its sandbox sender (`onboarding
 
 Values live in Render's dashboard, not in git. Names, for reference:
 
-`appName`, `MASTER_KEY`, `MONGODB_URI` (Atlas `mongodb+srv://` connection string, includes `retryWrites=true&w=majority`), `PARSE_MOUNT=/app`, `SERVER_URL` (the Render service's own public URL + `/app`), `USE_LOCAL=true`, `APP_ID`, `SMTP_ENABLE=false`, `RESEND_API_KEY`, `RESEND_SENDER=onboarding@resend.dev`, `PASS_PHRASE`, `PFX_BASE64`, `NODE_VERSION=20.18.1`.
+`appName`, `MASTER_KEY`, `MONGODB_URI` (Atlas `mongodb+srv://` connection string, includes `retryWrites=true&w=majority`), `PARSE_MOUNT=/app`, `SERVER_URL` (the Render service's own public URL + `/app`), `USE_LOCAL=false`, `APP_ID`, `SMTP_ENABLE=false`, `RESEND_API_KEY`, `RESEND_SENDER=onboarding@resend.dev`, `PASS_PHRASE`, `PFX_BASE64`, `NODE_VERSION=20.18.1`.
+
+**R2 storage vars**: `DO_SPACE` (bucket name, `opensign-files`), `DO_ENDPOINT` (the R2 account's S3 API endpoint, `https://<account-id>.r2.cloudflarestorage.com`), `DO_BASEURL` (the bucket's public R2.dev URL — Settings → Public Development URL → Enable; no custom domain needed), `DO_ACCESS_KEY_ID` / `DO_SECRET_ACCESS_KEY` (from an R2 Account API Token, Object Read & Write, scoped to the bucket), `DO_REGION=auto`. These reuse the same `s3Options` code path index.js already had for DigitalOcean Spaces — no code change was needed, only these env vars.
 
 **Atlas Network Access** must allow `0.0.0.0/0` — the auto-created entry only allowlists whoever's IP created the cluster, which is not Render's IP. Without this, MongoDB connections fail with a TLS-layer error (`tlsv1 alert internal error`) rather than a clean connection-refused, which is non-obvious to diagnose.
 
@@ -57,10 +59,10 @@ Values live in Render's dashboard, not in git. Names, for reference:
 - Confirmed `GET /app/health` responds and `GET /app/users/me` with a pre-migration session token returns the correct user — proves both the Mongo connection and the migrated session data work end-to-end.
 - Sent a real test email via `sendmailv3` after the Resend switch → `{"status":"success"}`, and visually confirmed receipt in the inbox (not spam).
 - Confirmed the Vercel frontend loads and the full app (login, Document Recheck, Secretary Management) is reachable from a network where the old domain was blocked by the corporate firewall — the actual goal of this migration.
+- Uploaded a test file after switching to R2, triggered a fresh Render redeploy, then fetched the same file again (both via a presigned URL and the plain public R2.dev URL) — confirmed it survived, closing out the `USE_LOCAL` data-loss issue.
 
 ## 6. Known follow-ups
 
-- **File persistence**: `USE_LOCAL=true` means uploaded/signed PDFs can be lost on a Render redeploy. Fine for testing; would need S3-compatible storage (Cloudflare R2 / Backblaze B2 free tiers were considered but need a card for account verification) before any real usage.
 - **Resend sending restriction**: only sends to the account owner's own email until a real domain is verified on Resend. Fine for admin-only testing of the mail pipeline; not yet usable for actual signer invites to third parties.
 - **Render free tier cold starts**: the backend sleeps after 15 minutes of inactivity; the first request after a sleep takes ~30-60s to wake up. No cost, just a UX quirk to expect during testing.
 - The local Cloudflare Tunnel / `thitaphat.online` setup from the previous session is no longer needed for testing and can be left off; nothing currently depends on it.
