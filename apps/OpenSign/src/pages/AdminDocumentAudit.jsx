@@ -5,9 +5,10 @@ import Loader from "../primitives/Loader";
 
 // Admin-only diagnostic tool: search a document creator's outgoing
 // signature-request documents by email (+ optional document name) and see
-// mail-send history, current status, Send-in-order setting, and a
-// plain-language diagnosis of anything that looks wrong. Read-only - it
-// does not resend mail itself, admins already have Resend on the document.
+// mail-send history, current status, Send-in-order setting, per-signer
+// progress, and a plain-language diagnosis of anything that looks wrong.
+// Read-only - it does not resend mail itself, admins already have Resend on
+// the document.
 //
 // Access is enforced server-side too (adminauditdocuments cloud function
 // rejects non-admins) - this redirect is just so a non-admin who guesses
@@ -25,6 +26,20 @@ const STATUS_LABEL_TH = {
   Declined: "ปฏิเสธการเซ็น",
   "Not yet sent": "ยังไม่ได้ส่ง",
   "In progress": "กำลังดำเนินการ"
+};
+
+const PROGRESS_STYLES = {
+  Completed: "op-progress-success",
+  Declined: "op-progress-error",
+  "Not yet sent": "",
+  "In progress": "op-progress-warning"
+};
+
+const SIGNER_STATUS = {
+  Signed: { icon: "✅", label: "ลงนามแล้ว", badge: "op-badge-success" },
+  Viewed: { icon: "👁️", label: "เปิดดูแล้ว รอลงนาม", badge: "op-badge-info" },
+  Pending: { icon: "⏳", label: "ยังไม่ได้เปิดดู", badge: "op-badge-ghost" },
+  Declined: { icon: "❌", label: "ปฏิเสธการเซ็น", badge: "op-badge-error" }
 };
 
 const PURPOSE_LABEL_TH = {
@@ -144,6 +159,8 @@ function AdminDocumentAudit() {
       <div className="flex flex-col gap-3">
         {documents?.map((doc) => {
           const isOpen = expandedId === doc.objectId;
+          const total = doc.totalCount ?? doc.signers?.length ?? 0;
+          const signed = doc.signedCount ?? 0;
           return (
             <div
               key={doc.objectId}
@@ -171,10 +188,31 @@ function AdminDocumentAudit() {
                     >
                       {STATUS_LABEL_TH[doc.status] || doc.status}
                     </span>
-                    <span className="op-badge op-badge-sm op-badge-outline">
-                      Send in order: {doc.sendInOrder ? "Y" : "N"}
+                    <span
+                      className="op-badge op-badge-sm op-badge-outline"
+                      title={
+                        doc.sendInOrder
+                          ? "ผู้ลงนามต้องเซ็นตามลำดับที่กำหนด"
+                          : "ผู้ลงนามเซ็นตามลำดับไหนก่อนก็ได้"
+                      }
+                    >
+                      {doc.sendInOrder ? "🔢 ตามลำดับ" : "🔀 ไม่จำกัดลำดับ"}
                     </span>
                   </div>
+
+                  {total > 0 && (
+                    <div className="flex items-center gap-2 mt-2 max-w-sm">
+                      <progress
+                        className={`op-progress ${PROGRESS_STYLES[doc.status] || ""} w-full h-2`}
+                        value={signed}
+                        max={total}
+                      />
+                      <span className="text-xs text-base-content/60 whitespace-nowrap">
+                        {signed}/{total} คน
+                      </span>
+                    </div>
+                  )}
+
                   <div className="text-xs text-base-content/50 mt-1">
                     สร้างเมื่อ {formatDateTh(doc.createdAt)}
                   </div>
@@ -211,6 +249,49 @@ function AdminDocumentAudit() {
                       ))}
                     </ul>
                   </div>
+
+                  {doc.signers?.length > 0 && (
+                    <div>
+                      <h3 className="font-medium mb-2 text-sm">
+                        รายชื่อผู้ลงนาม{doc.sendInOrder ? " (ตามลำดับ)" : ""}
+                      </h3>
+                      <ul className="flex flex-col gap-1.5">
+                        {doc.signers.map((s) => {
+                          const info = SIGNER_STATUS[s.status] || SIGNER_STATUS.Pending;
+                          return (
+                            <li
+                              key={s.order}
+                              className="flex items-center gap-2 text-sm bg-base-100 border border-base-300 rounded-box px-3 py-2"
+                            >
+                              {doc.sendInOrder && (
+                                <span className="op-badge op-badge-sm op-badge-neutral shrink-0">
+                                  {s.order}
+                                </span>
+                              )}
+                              <span className="text-base leading-none shrink-0">
+                                {info.icon}
+                              </span>
+                              <span className="flex-1 min-w-0">
+                                <span className="font-medium truncate block">
+                                  {s.name}
+                                </span>
+                                {s.email && (
+                                  <span className="text-xs text-base-content/50 truncate block">
+                                    {s.email}
+                                  </span>
+                                )}
+                              </span>
+                              <span
+                                className={`op-badge op-badge-sm ${info.badge} shrink-0`}
+                              >
+                                {info.label}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
 
                   <div>
                     <h3 className="font-medium mb-2 text-sm">

@@ -32,6 +32,31 @@ function buildAuditEntry(doc) {
       .filter(Boolean);
   }
 
+  // Per-signer breakdown, in placeholder order (= signing order when
+  // SendinOrder is on) - drives the progress bar and the individual status
+  // list in the UI.
+  const declineByObjId = d.DeclineBy?.objectId;
+  const signers = placeholders.map((p, idx) => {
+    const signerObjId = p?.signerObjId || p?.signerPtr?.objectId;
+    let signerStatus;
+    if (d.IsDeclined && signerObjId && signerObjId === declineByObjId) {
+      signerStatus = 'Declined';
+    } else if (signedIds.has(signerObjId)) {
+      signerStatus = 'Signed';
+    } else if (viewedIds.has(signerObjId)) {
+      signerStatus = 'Viewed';
+    } else {
+      signerStatus = 'Pending';
+    }
+    return {
+      order: idx + 1,
+      name: p?.signerPtr?.Name || signerObjId || `ผู้ลงนามคนที่ ${idx + 1}`,
+      email: p?.signerPtr?.Email || '',
+      status: signerStatus
+    };
+  });
+  const signedCount = signers.filter(s => s.status === 'Signed').length;
+
   const mailLog = Array.isArray(d.MailLog) ? [...d.MailLog].reverse() : [];
 
   const diagnosis = [];
@@ -73,6 +98,9 @@ function buildAuditEntry(doc) {
     waitingOn,
     sendInOrder: !!d.SendinOrder,
     createdAt: d.createdAt,
+    signers,
+    signedCount,
+    totalCount: signers.length,
     mailLog,
     diagnosis,
     hasIssue: diagnosis.length > 0 && diagnosis[0] !== 'ไม่พบความผิดปกติ',
