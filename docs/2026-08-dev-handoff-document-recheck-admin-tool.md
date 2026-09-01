@@ -1,9 +1,9 @@
 # Dev handoff — Mail-send logging + "Document Recheck" admin tool
 
 **Branch:** `staging`
-**Commits:** `f351cd14` (feature) → `80e9bae9` (docs) → `531552d8` (UI polish, final)
+**Commits:** `f351cd14` (feature) → `80e9bae9` (docs) → `531552d8` (UI polish) → `bf83cd0a` (progress bar + per-signer status, final)
 **Pushed to:** `github.com/pairat3000/OpenSign` and `gitlab.dohome.technology/thitaphatana-san-sdl/opensign-golf`, both `staging`
-**Status:** Final. Implemented, tested API-level, and reviewed live in-browser by an admin (UI approved as-is).
+**Status:** Final. Implemented, tested API-level, and reviewed live in-browser by an admin (UI approved as-is). Deployed to Render + Vercel.
 
 ---
 
@@ -51,6 +51,21 @@ New page `apps/OpenSign/src/pages/AdminDocumentAudit.jsx` — two inputs (email,
 
 Access is gated three ways: sidebar link hidden for non-admins (`apps/OpenSign/src/json/menuJson.js`, added alongside the existing "Users" admin-only item so it inherits the same `isAdmin` gate in `Sidebar.jsx`), the cloud function rejects non-admins server-side, and the page itself redirects non-admins to the dashboard if they hit the URL directly.
 
+### Follow-up redesign — progress bar + per-signer status (commit `bf83cd0a`)
+
+Requested after live use: the collapsed row and mail-log table didn't answer "who specifically hasn't signed yet, and where are they in the order" at a glance.
+
+`adminAuditDocuments.js` now also returns, per document:
+- `signers` — one entry per completion-relevant placeholder, **in placeholder order** (= actual signing order when `SendinOrder` is on): `{ order, name, email, status }`, where `status` is `Signed | Viewed | Declined | Pending` (`Viewed` from an `AuditTrail` `Viewed` activity; `Declined` matched via `contracts_Document.DeclineBy`).
+- `signedCount` / `totalCount` — drives the progress bar.
+
+`AdminDocumentAudit.jsx` changes:
+- Collapsed row: a `<progress>` bar (`op-progress`, colored by `status` — success/warning/error to match the status badge) plus an "x/y คน" label, and the send-in-order badge was reworded from a plain "Y/N" chip to `🔢 ตามลำดับ` / `🔀 ไม่จำกัดลำดับ` with a tooltip.
+- Expanded view: new "รายชื่อผู้ลงนาม" section — each signer as its own row with (when `sendInOrder`) an order-number badge, an icon (✅/👁️/⏳/❌), name, email, and a status badge, so a stuck send-in-order document shows exactly who's blocking it without cross-referencing the mail-log table.
+- Diagnosis and mail-log sections are unchanged.
+
+**Note on testing this in a browser**: Resend's sandbox sender (no verified domain — see the hosting-migration handoff doc) only delivers to the account owner's own address, and rejects Gmail `+alias` variants as a workaround (confirmed: `pairat3000+signer1@gmail.com` gets the same "own email address only" rejection as any other non-owner address) — so mail-log entries for test signers will show as failed sends in most local testing. That's independent of the audit tool itself and of `SendinOrder` enforcement, which is checked server-side against `AuditTrail`, not against whether the notification email delivered.
+
 ## 3. Also fixed in this pass
 
 - **Sidebar showed a raw i18n key** (`sidebar.Settings-Children.Document Audit`) instead of a label, because the menu item's title had no matching translation entry. Renamed the item to "Document Recheck" and added the key to all 7 locale files (`apps/OpenSign/public/locales/{en,de,fr,es,it,kr,hi}/translation.json`).
@@ -65,6 +80,8 @@ Access is gated three ways: sidebar link hidden for non-admins (`apps/OpenSign/s
 - Called it with an email that matches no user → returns `{ documents: [] }`, no error.
 - **Live browser walkthrough by an admin** on the actual deployed test instance: searched by creator email, reviewed the results UI (status badges, waiting-on chips, issue icons, mail-history table), requested the UI polish described above, re-tested, and approved the result as final.
 
+**Progress bar / per-signer redesign** — verified against the live Render backend post-deploy: `adminauditdocuments` returns correctly ordered `signers[]` with accurate per-signer `status` and `signedCount/totalCount` matching each document's real `AuditTrail` state (checked across 9 real documents spanning Completed/In progress/Not yet sent). Confirmed rendering live in-browser (progress bar, order-numbered signer list, status icons) via a real admin screenshot after a genuine mail-send failure.
+
 ## 5. Known follow-ups
 
-None outstanding — feature is considered complete pending real deployment (see the separate SMTP/Comments-feature handoff doc for the general "not yet deployed to a persistent server" note, which still applies here too).
+None outstanding for the audit tool itself. Deployed and live on Render + Vercel (see the hosting-migration handoff doc for that stack) — the earlier "not yet deployed to a persistent server" caveat from the original write-up no longer applies.
