@@ -89,6 +89,31 @@ function buildAuditEntry(doc) {
       }
     }
   }
+  // Signing order is literally each signer's position in the Placeholders
+  // array (see workflowUtils.js) - a duplicate signerObjId means the strict-
+  // order check only ever evaluates the FIRST occurrence, silently ignoring
+  // the second. This is the retroactively-detectable half of the "signer
+  // ended up out of their intended position" bug class (the corrupted-order
+  // case itself leaves no trace once signing has happened consistently
+  // against the already-reordered array - only a fresh document created
+  // after the client-side fix is guaranteed safe).
+  if (d.SendinOrder) {
+    const seenIds = new Set();
+    const duplicateNames = [];
+    placeholders.forEach(p => {
+      const signerObjId = p?.signerObjId || p?.signerPtr?.objectId;
+      if (!signerObjId) return;
+      if (seenIds.has(signerObjId)) {
+        duplicateNames.push(p?.signerPtr?.Name || signerObjId);
+      }
+      seenIds.add(signerObjId);
+    });
+    if (duplicateNames.length > 0) {
+      diagnosis.push(
+        `พบผู้ลงนามซ้ำในรายการ (${duplicateNames.join(', ')}) — ลำดับการเซ็นอาจไม่ถูกต้อง แนะนำให้สร้างเอกสารใหม่แทนการแก้ไขเอกสารนี้`
+      );
+    }
+  }
   if (diagnosis.length === 0) diagnosis.push('ไม่พบความผิดปกติ');
 
   return {

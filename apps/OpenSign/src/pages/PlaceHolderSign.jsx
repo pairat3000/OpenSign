@@ -844,10 +844,16 @@ function PlaceHolderSign() {
               }
               return obj;
             });
-            let signerupdate = [];
-            signerupdate = signerPos.filter((data) => data.Id !== Id);
-            signerupdate.push(newUpdatePos[0]);
-            setSignerPos(signerupdate);
+            // Update this signer's entry in place - do NOT filter it out and
+            // re-push it, that silently moves them to the end of the array,
+            // which IS their signing order (see workflowUtils.js) and would
+            // corrupt Send-in-order position for every signer after them.
+            const signerIndex = signerPos.findIndex((data) => data.Id === Id);
+            if (signerIndex !== -1) {
+              const signerupdate = [...signerPos];
+              signerupdate[signerIndex] = newUpdatePos[0];
+              setSignerPos(signerupdate);
+            }
           } else {
             const updatedData = signerPos
               .filter((item) => !(item.Id === Id && item.Role === "prefill")) // Remove prefill object
